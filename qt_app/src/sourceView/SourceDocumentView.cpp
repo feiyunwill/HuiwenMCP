@@ -2,12 +2,28 @@
 #include "SourceDocumentView.h"
 #include "components/FileCard.h"
 #include <QVBoxLayout>
+#include <QScrollArea>
 
 SourceDocumentView::SourceDocumentView(QWidget *parent) : QWidget(parent), card_(new FileCard(this))
 {
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(32, 32, 32, 96);
-    layout->addWidget(card_, 0, Qt::AlignCenter);
+    layout->setContentsMargins(0, 0, 0, 0);
+    auto *scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setBackgroundRole(QPalette::Window);
+    scroll->viewport()->setBackgroundRole(QPalette::Window);
+    scroll->viewport()->setObjectName(QStringLiteral("sourceDocumentViewport"));
+    auto *content = new QWidget;
+    content->setObjectName(QStringLiteral("sourceDocumentBackground"));
+    content->setAttribute(Qt::WA_StyledBackground);
+    auto *cards = new QVBoxLayout(content);
+    cards->setContentsMargins(32, 32, 32, 112);
+    cards->addStretch();
+    cards->addWidget(card_, 0, Qt::AlignHCenter);
+    cards->addStretch();
+    scroll->setWidget(content);
+    layout->addWidget(scroll);
     setMinimumWidth(260);
     setDocuments({});
     connect(card_, &QPushButton::clicked, this, &SourceDocumentView::selectionRequested);
