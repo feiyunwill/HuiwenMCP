@@ -9,6 +9,7 @@
 /entry/libs/
 # Python HNP 是本机打包产物；仓库只保存打包脚本和自检源码。
 /hnp/**/*.hnp
+/.hnp-cache/
 # Python 本机语法检查缓存。
 __pycache__/
 *.pyc

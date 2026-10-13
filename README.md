@@ -36,7 +36,7 @@ HuiWenMCP/
 │   ├── libs/arm64-v8a/                [生成] 仅最小 Qt 运行库，不进入 Git
 │   │   └── libQt5{Core,Gui,Widgets,Concurrent}.so、libplugins_platforms_qopenharmony.so
 │   ├── build-profile.json5            [已有] HAP 构建与 ABI 配置
-│   ├── hvigorfile.ts                   [已有] 在 HAP 签名前注入 Python HNP
+│   ├── hvigorfile.ts                   [已有] 每次运行构建生成 Python HNP，并在 HAP 签名前注入
 │   └── oh-package.json5               [已有] 模块依赖
 ├── converter/                         [已有] 可供桌面端复用的 Python 转换逻辑
 │   ├── huiwen_converter/              [已有] 汇文公开 Python API
@@ -147,17 +147,25 @@ git submodule update --init third_party/markitdown
 git submodule status third_party/markitdown
 ```
 
-再取得鸿蒙 arm64 Python 3.14 的已解压安装目录，要求包含 `bin/python3` 和 `lib/python3.14/site-packages/`。原有自检使用 [Harmonybrew 的预编译 Python 3.14.6](https://github.com/Harmonybrew/ohos-python/releases/tag/3.14.6) 通过；本阶段的 PDF 原生依赖还需设备验证。执行：
+再取得鸿蒙 arm64 Python 3.14 的已解压安装目录，要求包含 `bin/python3` 和 `lib/python3.14/site-packages/`。原有自检使用 [Harmonybrew 的预编译 Python 3.14.6](https://github.com/Harmonybrew/ohos-python/releases/tag/3.14.6) 通过。在被 Git 忽略的 `local.properties` 中配置本机路径：
+
+```properties
+python.runtime.dir=/绝对路径/python-3.14.6-ohos-arm64
+# 可选：指定本机带 pip 的 Python，避免 DevEco 的 PATH 找不到解释器。
+python.host.path=/绝对路径/宿主/python3
+```
+
+也可用 `HUIWEN_PYTHON_RUNTIME` 和 `HOST_PYTHON` 环境变量覆盖上述配置。相对配置路径按项目根目录解析。正常点击 DevEco Run 并执行 HAP 构建安装时，签名前的 `RepackHapWithHnp` 任务每次重新生成 HNP；仅热重载不保证执行此任务。仍可手动生成：
 
 ```sh
 bash packaging/ohos/pack_python_hnp.sh /绝对路径/python-3.14.6-ohos-arm64
 ```
 
-脚本使用本机 Python 的 pip 下载 `requirements-pdf.txt` 中锁定的鸿蒙 arm64/musl wheel，复制 MarkItDown 子模块和汇文 Python API，应用 `markitdown-no-magika.patch`，最后用 SDK 的 `hnpcli` 在 `hnp/arm64-v8a/` 生成 `huiwen_python.hnp`。它是被 Git 忽略的本机产物；新克隆后必须先生成 HNP 再构建 HAP。若 SDK 工具不在默认位置，可设置 `HNPCLI=/绝对路径/hnpcli`；若本机 `python3` 无 pip，可设置 `HOST_PYTHON=/绝对路径/python3`。HNP 的 `name/version` 固定为 `huiwen_python/1.0.0`。
+脚本使用本机 Python 的 pip 下载 `requirements-pdf.txt` 中锁定的鸿蒙 arm64/musl wheel。目标依赖按清单 SHA-256 缓存在被 Git 忽略的 `.hnp-cache/`，清单变化时重新安装；需要强制刷新依赖时删除该缓存。MarkItDown 子模块、汇文 Python API、自检和转换脚本每次重新复制，随后应用 `markitdown-no-magika.patch` 并用 SDK 的 `hnpcli` 生成新 HNP。只有成功生成非空归档后才替换 `hnp/arm64-v8a/huiwen_python.hnp`；任一步失败都会停止构建，不使用旧 HNP 继续安装。若 SDK 工具不在默认位置，可设置 `HNPCLI=/绝对路径/hnpcli`。HNP 的 `name/version` 固定为 `huiwen_python/1.0.0`。
 
 MarkItDown 官方源码保持在子模块的 `v0.1.8` 提交；它采用 MIT 许可，可修改并商用，但分发时需保留许可与第三方声明。其官方包强制依赖 Magika/ONNX Runtime，而当前目标架构无法直接解析 ONNX Runtime wheel。仓库中的补丁只让 Magika 可选；本阶段输入已由选择器限定为 `.pdf`，按扩展名交给 PDF 转换器。补丁不改动子模块原始源码。pip 能解析目标架构 wheel 只说明可获取包，不代表鸿蒙设备能加载其中的原生 `.so`；需在设备上完成导入及实际 PDF 转换验收。
 
-当前 Hvigor 的默认 `PackageHap` 不会自动带入根目录的 HNP。`entry/hvigorfile.ts` 在 `PackageHap` 后、`SignHap` 前调用 SDK `app_packing_tool.jar --hnp-path` 重打未签名 HAP，并检查其中是否存在 `hnp/arm64-v8a/huiwen_python.hnp`；缺少 HNP 时构建会失败。SDK 不在 DevEco Studio 默认安装目录时，设置 `DEVECO_SDK_HOME` 或 `OHOS_SDK_HOME` 指向 SDK 根目录。
+Hvigor 的默认 `PackageHap` 不会自动带入根目录的 HNP。`entry/hvigorfile.ts` 在 `PackageHap` 后、`SignHap` 前先生成 HNP，再调用 SDK `app_packing_tool.jar --hnp-path` 重打未签名 HAP，并检查归档中是否存在 `hnp/arm64-v8a/huiwen_python.hnp`。构建输出中的 `[HUIWEN_HNP] START`、`DEPENDENCIES install/cached`、`GENERATED`、`DONE` 可用于核对流程。SDK 不在 DevEco Studio 默认安装目录时，设置 `DEVECO_SDK_HOME` 或 `OHOS_SDK_HOME` 指向 SDK 根目录。源码修改后的实际安装更新仍需设备验证；转换诊断在 HiLog 中筛选 `HuiwenPython`，核对 `RUNTIME` 的算法标识。
 
 ```sh
 cd entry && ohpm install

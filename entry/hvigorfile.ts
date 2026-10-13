@@ -3,7 +3,7 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// 默认 PackageHap 不带 HNP 路径；在签名前重打未签名 HAP，供设备安装器解包。
+// 每次运行此任务先生成新 HNP，再在签名前重打未签名 HAP。
 const repackHapWithHnpPlugin = {
   pluginId: 'huiwen.repack-hap-with-hnp',
   apply(node: any) {
@@ -26,24 +26,74 @@ const repackHapWithHnpPlugin = {
           process.env.OHOS_SDK_HOME,
           '/Applications/DevEco-Studio.app/Contents/sdk'
         ].filter((root): root is string => root !== undefined && root !== '');
-        const packingTool = sdkRoots.flatMap((root) => [
-          path.join(root, 'default/openharmony/toolchains/lib/app_packing_tool.jar'),
-          path.join(root, 'toolchains/lib/app_packing_tool.jar')
-        ]).find((candidate) => fs.existsSync(candidate));
+        const packingTool = sdkRoots
+          .flatMap((root) => [
+            path.join(root, 'default/openharmony/toolchains/lib/app_packing_tool.jar'),
+            path.join(root, 'toolchains/lib/app_packing_tool.jar')
+          ])
+          .find((candidate) => fs.existsSync(candidate));
 
-        if (!packingTool || !fs.existsSync(hnpFile) || fs.statSync(hnpFile).size === 0) {
-          throw new Error('缺少 app_packing_tool.jar 或 huiwen_python.hnp；请先运行 packaging/ohos/pack_python_hnp.sh');
+        if (!packingTool) {
+          throw new Error('缺少 app_packing_tool.jar；请配置 DEVECO_SDK_HOME 或 OHOS_SDK_HOME');
         }
+        const propertiesFile = path.join(projectRoot, 'local.properties');
+        const properties = fs.existsSync(propertiesFile) ? fs.readFileSync(propertiesFile, 'utf8') : '';
+        const runtimeSetting =
+          process.env.HUIWEN_PYTHON_RUNTIME ?? properties.match(/^\s*python\.runtime\.dir\s*=\s*(.+)$/m)?.[1].trim();
+        const hostPython =
+          process.env.HOST_PYTHON ?? properties.match(/^\s*python\.host\.path\s*=\s*(.+)$/m)?.[1].trim();
+        if (!runtimeSetting) {
+          throw new Error('请在 local.properties 配置 python.runtime.dir，或设置 HUIWEN_PYTHON_RUNTIME');
+        }
+        const runtimeDir = path.resolve(projectRoot, runtimeSetting);
+        const hnpcli =
+          process.env.HNPCLI ??
+          sdkRoots
+            .flatMap((root) => [
+              path.join(root, 'default/openharmony/toolchains/hnpcli'),
+              path.join(root, 'toolchains/hnpcli')
+            ])
+            .find((candidate) => fs.existsSync(candidate));
+        console.info(`[HUIWEN_HNP] START runtime=${runtimeDir}`);
+        execFileSync('bash', [path.join(projectRoot, 'packaging/ohos/pack_python_hnp.sh'), runtimeDir], {
+          cwd: projectRoot,
+          stdio: 'inherit',
+          env: {
+            ...process.env,
+            ...(hostPython
+              ? { HOST_PYTHON: hostPython.includes(path.sep) ? path.resolve(projectRoot, hostPython) : hostPython }
+              : {}),
+            ...(hnpcli ? { HNPCLI: hnpcli } : {})
+          }
+        });
+        if (!fs.existsSync(hnpFile) || fs.statSync(hnpFile).size === 0) {
+          throw new Error('HNP 自动生成后未找到有效产物，停止 HAP 打包');
+        }
+        console.info(`[HUIWEN_HNP] DONE file=${hnpFile} bytes=${fs.statSync(hnpFile).size}`);
 
         const args = [
-          '-jar', packingTool, '--mode', 'hap', '--force', 'true',
-          '--json-path', path.join(buildRoot, 'intermediates/package', target, 'module.json'),
-          '--resources-path', path.join(buildRoot, 'intermediates/res', target, 'resources'),
-          '--index-path', path.join(buildRoot, 'intermediates/res', target, 'resources.index'),
-          '--pack-info-path', path.join(outputRoot, 'pack.info'),
-          '--lib-path', path.join(buildRoot, 'intermediates/stripped_native_libs', target),
-          '--ets-path', path.join(buildRoot, 'intermediates/loader_out', target, 'ets'),
-          '--hnp-path', hnpRoot, '--out-path', outPath
+          '-jar',
+          packingTool,
+          '--mode',
+          'hap',
+          '--force',
+          'true',
+          '--json-path',
+          path.join(buildRoot, 'intermediates/package', target, 'module.json'),
+          '--resources-path',
+          path.join(buildRoot, 'intermediates/res', target, 'resources'),
+          '--index-path',
+          path.join(buildRoot, 'intermediates/res', target, 'resources.index'),
+          '--pack-info-path',
+          path.join(outputRoot, 'pack.info'),
+          '--lib-path',
+          path.join(buildRoot, 'intermediates/stripped_native_libs', target),
+          '--ets-path',
+          path.join(buildRoot, 'intermediates/loader_out', target, 'ets'),
+          '--hnp-path',
+          hnpRoot,
+          '--out-path',
+          outPath
         ];
         const pkgContext = path.join(buildRoot, 'intermediates/loader', target, 'pkgContextInfo.json');
         if (fs.existsSync(pkgContext)) {
@@ -62,6 +112,6 @@ const repackHapWithHnpPlugin = {
 };
 
 export default {
-  system: hapTasks, /* Built-in plugin of Hvigor. It cannot be modified. */
+  system: hapTasks /* Built-in plugin of Hvigor. It cannot be modified. */,
   plugins: [repackHapWithHnpPlugin]
-}
+};
