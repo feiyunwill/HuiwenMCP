@@ -1,7 +1,8 @@
 // Qt 独立窗口入口；保留自己的 Context 处理文件选择，首页结束后仍可使用。
-import { UIAbility, Want, AbilityConstant } from '@kit.AbilityKit';
+import { UIAbility, Want, AbilityConstant, OpenLinkOptions } from '@kit.AbilityKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { window } from '@kit.ArkUI';
-import { fileIo, fileUri, picker } from '@kit.CoreFileKit';
+import { fileUri } from '@kit.CoreFileKit';
 import hilog from '@ohos.hilog';
 import qpa from 'libplugins_platforms_qopenharmony.so';
 import nativeBridge from 'libhuiwen_native.so';
@@ -95,34 +96,22 @@ export default class QtWorkspaceAbility extends UIAbility {
     if (!path.startsWith(outputDir) || path.includes('/../') || !path.endsWith('.md')) {
       throw new Error('输出路径不属于本应用 Markdown 沙箱');
     }
-    // 尝试在系统文件管理器定位；部分系统不允许展示应用私有目录。
+    // 文件管理器按文件 URI 定位所在目录，不再用保存选择器导出副本。
+    const uri = fileUri.getUriFromPath(path);
+    const options: OpenLinkOptions = {
+      parameters: { fileUri: uri }
+    };
+    hilog.info(0xFF00, 'QtWorkspace', 'HUIWEN_QT_OPEN_REQUEST: directory=%{public}s, uri=%{public}s',
+      outputDir, uri);
     try {
-      await this.context.startAbility({
-        action: 'ohos.want.action.viewData',
-        uri: fileUri.getUriFromPath(outputDir),
-        type: 'inode/directory'
-      });
-      return;
-    } catch (_) {
-      // 系统拒绝私有目录时，使用保存选择器导出副本供用户查看。
-    }
-    const options = new picker.DocumentSaveOptions();
-    options.newFileNames = [path.slice(path.lastIndexOf('/') + 1)];
-    options.fileSuffixChoices = ['Markdown|.md'];
-    const targets = await new picker.DocumentViewPicker(this.context).save(options);
-    if (targets.length === 0) {
-      return;
-    }
-    const source = await fileIo.open(path, fileIo.OpenMode.READ_ONLY);
-    try {
-      const target = await fileIo.open(targets[0], fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.TRUNC);
-      try {
-        await fileIo.copyFile(source.fd, target.fd);
-      } finally {
-        await fileIo.close(target);
-      }
-    } finally {
-      await fileIo.close(source);
+      await this.context.openLink('filemanager://openDirectory', options);
+      // Promise 完成只表示拉起请求成功，目录定位效果仍需真机确认。
+      hilog.info(0xFF00, 'QtWorkspace', 'HUIWEN_QT_OPEN_REQUEST_ACCEPTED');
+    } catch (error) {
+      const failure = error as BusinessError;
+      hilog.error(0xFF00, 'QtWorkspace', 'HUIWEN_QT_OPEN_FAILED: code=%{public}d, message=%{public}s',
+        failure.code, failure.message);
+      throw new Error(`无法打开 Markdown 所在目录（${failure.code}）：${failure.message}`);
     }
   }
 

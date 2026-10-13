@@ -119,7 +119,7 @@ HuiWenMCP/
 | MD 预览 | `files/inputs/md/<唯一编号>.md`（选择 `.markdown` 时保留该后缀） | 打开系统选择器、复制文件、留在首页 |
 | PDF 转 MD | 输入：`files/inputs/pdf/<唯一编号>.pdf`；输出：`files/outputs/md/<原文件名>-<唯一编号>.md` | 首页打开 Qt；Qt 输入区域选取文件，点击转化后显示 MD 卡片 |
 
-系统选择器返回的 URI 只用于读取选中文件；应用内部后续使用沙箱副本路径。转换成功后才生成非空 `.md` 文件并显示路径；文字无法提取的扫描件会提示需要 OCR，不生成空结果。本阶段不渲染文件内容。MD 卡片先尝试让系统文件管理器打开 `outputs/md/`；系统不允许显示应用私有目录时，回退系统保存选择器导出 MD 副本。这是访问限制下的回退操作，不改变应用内输出路径；实际定位能力需真机验证。
+系统选择器返回的 URI 只用于读取选中文件；应用内部后续使用沙箱副本路径。转换成功后才生成非空 `.md` 文件并显示路径；文字无法提取的扫描件会提示需要 OCR，不生成空结果。本阶段不渲染文件内容。MD 卡片通过 `openLink('filemanager://openDirectory')` 和 `parameters.fileUri` 传入生成文件的 URI，请求系统文件管理器定位其所在的 `outputs/md/`；失败直接显示错误，不弹出保存选择器或导出副本。内部路径继续由 `Context.filesDir` 获取，鸿蒙 PC 文件管理器中的对应展示位置为 `/storage/Users/currentUser/appdata/el2/base/cn.com.HuiWenMCP/files/outputs/md`，实际定位能力需真机验证。
 
 ## 本地构建
 
@@ -182,7 +182,7 @@ hvigorw assembleHap --mode module -p product=default -p module=entry@default
 2. 左右文档区域占满状态栏上方的可用高度，底部状态栏保持紧凑；还原窗口并调整大小时布局应同步变化。悬停中间细线出现水平分割光标；拖动改变两侧宽度，底部小型“转化”按钮保持居中在线上。
 3. 点击左侧虚线加号选择 PDF，取消应保留原状态；选取后显示 PDF 占位图和原文件名。
 4. 点击“转化”，操作期间不能重复选择或提交。成功后右侧显示 MD 占位图和输出文件名；失败在底部显示错误。再选一个 PDF 检查重复导入。
-5. 点击 MD 卡片检查系统文件管理器定位；若系统拒绝私有目录，检查保存选择器能导出同一个 MD 文件。
+5. 点击 MD 卡片，应打开系统文件管理器并定位 `files/outputs/md`，不出现保存弹窗；原 MD 文件位置不变。查看 `QtWorkspace` 标签下的 `HUIWEN_QT_OPEN_REQUEST`（目录与文件 URI）、`HUIWEN_QT_OPEN_REQUEST_ACCEPTED`（仅表示拉起请求成功）或 `HUIWEN_QT_OPEN_FAILED`（错误码与消息）。请求成功但定位到错误目录时，也需记录实际打开位置，不能仅凭成功日志判定验收通过。
 
 HAP 包结构校验：
 
