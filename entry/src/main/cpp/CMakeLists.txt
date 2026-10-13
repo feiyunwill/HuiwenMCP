@@ -30,7 +30,7 @@ add_custom_command(TARGET huiwen_native POST_BUILD
             "${project_root}/entry/libs/arm64-v8a/$<TARGET_FILE_NAME:huiwen_native>"
     COMMENT "同步 huiwen_native 动态库到 entry/libs/arm64-v8a")
 
-# PDFium 由 Run 的准备任务生成并部署，此阶段仅随包分发，不接入预览。
+# PDFium 由 Run 的准备任务生成并部署，Qt 工作区链接该库显示正文预览。
 if(NOT EXISTS "${project_root}/entry/libs/arm64-v8a/libpdfium.so")
     message(FATAL_ERROR "缺少 libpdfium.so，请运行 packaging/ohos/build_pdfium.py")
 endif()

@@ -13,10 +13,10 @@
 ## 当前状态
 
 - 首页保持 ArkTS；PDF/MD 预览按钮仍只导入文件，PDF 转 MD 按钮改为启动独立 Qt 工作区。
-- Qt 开发依赖保存在 `third_party/qt/`，运行库从 `entry/libs/arm64-v8a/` 链接并随 HAP 分发；PDFium fork 保存在 `third_party/pdfium/`，暂不接入预览。
+- Qt 开发依赖保存在 `third_party/qt/`，运行库从 `entry/libs/arm64-v8a/` 链接并随 HAP 分发；PDFium fork 保存在 `third_party/pdfium/`，Qt 左侧输入区域已接入其公开 C API 实现正文预览；新增功能尚未编译、打包或真机验收。
 - DevEco Run 构建前执行 `PrepareNativeDependencies`，按当前 PDFium 源码增量生成 `libpdfium.so`；Qt/NAPI 的 C++ 编译后同步新库到 `libs`。没有保存源码自动构建、应用内动态替换库或保持进程状态的热重载。
 - Qt 工作区默认最大化并保留系统标题栏和窗口边框，输入、输出区域解耦；中部分割线可拖动，悬浮“转化”按钮随分隔线移动。
-- 输入文件卡片调用现有 DocumentStore 选择 PDF、复制沙箱并安排输出路径。Qt ConversionService 在工作线程复用 PythonRunner 转换，成功后显示 MD 文件卡片。本阶段不渲染 PDF/MD 内容。
+- 输入文件卡片调用现有 DocumentStore 选择 PDF、复制沙箱并安排输出路径。导入成功后上方显示“预览”和“更换文件”，点击“预览”才切换为多页正文；支持滚动，随窗口/分栏宽度等比排版并重新渲染，可返回文件卡片。PDFium 后台串行渲染可见页，连续尺寸变化合并请求；位图缓存上限为 64 MiB，超长页面降低采样分辨率。Qt ConversionService 仍复用 PythonRunner 转换，右侧成功后显示 MD 文件卡片。
 - 原有 Python HNP 自检与 PDF 转换已由用户在真机验证成功。新增 Qt 窗口交接、选择与结果位置操作需要真机验收。
 - 汇文 Python 包只公开 `pdf_to_md()`；后续格式在依赖和设备转换通过后再增加。
 
@@ -55,11 +55,14 @@ HuiWenMCP/
 │   │   └── _markitdown_adapter.py      [已有] 唯一直接调用 MarkItDown 的适配文件
 │   └── pdf2md/convert.py              [已有] HNP 固定的 PDF 命令入口
 ├── qt_app/                            [已有] Qt Widgets 工作区，鸿蒙共享库/桌面可执行入口
-│   ├── CMakeLists.txt                 构建 huiwen_qt；当前已验证鸿蒙编译
+│   ├── CMakeLists.txt                 构建 huiwen_qt 并链接 PDFium；新增预览尚未编译验证
 │   ├── main.cpp                       默认最大化并保留系统边框，显示成功后通知结束原首页
+│   ├── tests/                         独立桌面预览回归检查，需宿主 Qt/PDFium
 │   └── src/
 │       ├── workspace/ConversionWindow.h/.cpp     主窗口与组件接线
-│       ├── sourceView/SourceDocumentView.h/.cpp 输入区域入口
+│       ├── sourceView/
+│       │   ├── SourceDocumentView.h/.cpp 输入卡片、预览切换与文件选择入口
+│       │   └── PdfPreviewWidget.h/.cpp 后台 PDFium 渲染、分页滚动与尺寸自适应
 │       ├── resultView/MarkdownResultView.h/.cpp 输出区域入口
 │       ├── components/
 │       │   ├── FileCard.h/.cpp         PDF/MD 共用占位卡片
@@ -132,7 +135,7 @@ HuiWenMCP/
 | MD 预览 | `files/inputs/md/<唯一编号>.md`（选择 `.markdown` 时保留该后缀） | 打开系统选择器、复制文件、留在首页 |
 | PDF 转 MD | 输入：`files/inputs/pdf/<唯一编号>.pdf`；输出：`files/outputs/md/<原文件名>-<唯一编号>.md` | 首页打开 Qt；Qt 输入区域选取文件，点击转化后显示 MD 卡片 |
 
-系统选择器返回的 URI 只用于读取选中文件；应用内部后续使用沙箱副本路径。转换成功后才生成非空 `.md` 文件并显示路径；文字无法提取的扫描件会提示需要 OCR，不生成空结果。本阶段不渲染文件内容。MD 卡片通过 `openLink('filemanager://openDirectory')` 和 `parameters.fileUri` 传入生成文件的 URI，请求系统文件管理器定位其所在的 `outputs/md/`；失败直接显示错误，不弹出保存选择器或导出副本。内部路径继续由 `Context.filesDir` 获取，鸿蒙 PC 文件管理器中的对应展示位置为 `/storage/Users/currentUser/appdata/el2/base/cn.com.HuiWenMCP/files/outputs/md`，实际定位能力需真机验证。
+系统选择器返回的 URI 只用于读取选中文件；应用内部后续使用沙箱副本路径。转换成功后才生成非空 `.md` 文件并显示路径；文字无法提取的扫描件会提示需要 OCR，不生成空结果。ArkTS 首页仍只导入文件，正文预览由 Qt 工作区左侧的“预览”按钮进入。MD 卡片通过 `openLink('filemanager://openDirectory')` 和 `parameters.fileUri` 传入生成文件的 URI，请求系统文件管理器定位其所在的 `outputs/md/`；失败直接显示错误，不弹出保存选择器或导出副本。内部路径继续由 `Context.filesDir` 获取，鸿蒙 PC 文件管理器中的对应展示位置为 `/storage/Users/currentUser/appdata/el2/base/cn.com.HuiWenMCP/files/outputs/md`，实际定位能力需真机验证。
 
 ## 本地构建
 
@@ -217,7 +220,7 @@ hvigorw assembleHap --mode module -p product=default -p module=entry@default
 
 1. 点击 ArkTS 首页“PDF 转 MD”，Qt 默认最大化并保留系统标题栏、窗口边框及窗口控制按钮；查看 `QtWorkspace` 标签下的 `HUIWEN_QT_START`、`HUIWEN_QT_READY`，确认只有 `EntryAbility` 随后结束，`QtWorkspaceAbility` 保持运行；不应再出现 `newLocalStorage not found`、`Need object`。
 2. 左右文档区域占满状态栏上方的可用高度，底部状态栏保持紧凑；还原窗口并调整大小时布局应同步变化。悬停中间细线出现水平分割光标；拖动改变两侧宽度，底部小型“转化”按钮保持居中在线上。
-3. 点击左侧虚线加号选择 PDF，取消应保留原状态；选取后显示 PDF 占位图和原文件名。
+3. 点击左侧虚线加号选择 PDF，取消应保留原状态；选取后显示 PDF 占位图和原文件名，上方出现“预览”和“更换文件”。点击“预览”应显示正文，滚动可查看后续页；拖动分隔线或缩放窗口后，页面应按当前可用宽度等比重排并重新渲染。“返回文件”回到卡片；更换文件后回到卡片，从新文件第一页开始预览。损坏、加密文件应提示原因。
 4. 点击“转化”，操作期间不能重复选择或提交。成功后右侧显示 MD 占位图和输出文件名；失败在底部显示错误。再选一个 PDF 检查重复导入。
 5. 点击 MD 卡片，应打开系统文件管理器并定位 `files/outputs/md`，不出现保存弹窗；原 MD 文件位置不变。查看 `QtWorkspace` 标签下的 `HUIWEN_QT_OPEN_REQUEST`（目录与文件 URI）、`HUIWEN_QT_OPEN_REQUEST_ACCEPTED`（仅表示拉起请求成功）或 `HUIWEN_QT_OPEN_FAILED`（错误码与消息）。请求成功但定位到错误目录时，也需记录实际打开位置，不能仅凭成功日志判定验收通过。
 
@@ -227,4 +230,15 @@ HAP 包结构校验：
 python3 packaging/ohos/check_workspace_hap.py entry/build/default/outputs/default/entry-default-signed.hap
 ```
 
-Windows/macOS 的同一 Widgets 源码提供桌面入口，尚未编译验证和制作安装包。桌面转换需安装同一 Python 依赖、设置 `PYTHONPATH` 为仓库的 `converter/`，`HUIWEN_CONVERT_SCRIPT` 为 `converter/pdf2md/convert.py` 的绝对路径；可用 `HUIWEN_PYTHON` 指定解释器。
+Windows/macOS 的同一 Widgets 源码提供桌面入口，尚未编译验证和制作安装包；CMake 需通过 `PDFIUM_LIBRARY` 指定与宿主架构匹配的 PDFium 动态库。桌面转换需安装同一 Python 依赖、设置 `PYTHONPATH` 为仓库的 `converter/`，`HUIWEN_CONVERT_SCRIPT` 为 `converter/pdf2md/convert.py` 的绝对路径；可用 `HUIWEN_PYTHON` 指定解释器。
+
+PDF 预览桌面回归检查（独立工程，不加入 HAP；需要桌面 Qt 5.15 和对应宿主架构 PDFium）：
+
+```sh
+cmake -S qt_app/tests -B /tmp/huiwen-preview-check \
+  -DCMAKE_PREFIX_PATH=/桌面Qt目录 -DPDFIUM_LIBRARY=/本机PDFium动态库
+cmake --build /tmp/huiwen-preview-check
+QT_QPA_PLATFORM=offscreen /tmp/huiwen-preview-check/pdf_preview_check
+```
+
+该检查生成两页彩色 PDF，验证导入后按钮、真实页面像素、多页滚动、调整宽度、更换文档与忙碌状态。本次仅做静态/格式检查，未执行此桌面回归、C++ 编译、HAP 打包和设备预览。
