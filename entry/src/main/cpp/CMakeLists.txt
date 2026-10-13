@@ -1,19 +1,17 @@
 cmake_minimum_required(VERSION 3.16)
 project(HuiWenMCP)
 
-# Qt SDK 路径只放在环境变量或被忽略的 local.properties，不写入跨机器配置。
-if(NOT QT_PREFIX)
-    set(QT_PREFIX "$ENV{QT_PREFIX}")
-endif()
-if(NOT QT_PREFIX)
-    file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/../../../../local.properties" qt_config
-         REGEX "^qt.sdk.dir=")
-    string(REGEX REPLACE "^qt.sdk.dir=" "" QT_PREFIX "${qt_config}")
-endif()
+# 头文件、工具和配置使用项目内开发包；库入口指向 entry/libs。
+get_filename_component(project_root "${CMAKE_CURRENT_SOURCE_DIR}/../../../.." ABSOLUTE)
+set(QT_PREFIX "${project_root}/third_party/qt")
 if(NOT EXISTS "${QT_PREFIX}/lib/cmake/Qt5/Qt5Config.cmake")
-    message(FATAL_ERROR "请设置 QT_PREFIX 或 local.properties 中的 qt.sdk.dir 为鸿蒙 Qt SDK 目录")
+    message(FATAL_ERROR "缺少项目内 Qt 开发包，请运行 packaging/ohos/prepare_qt.py")
 endif()
 list(APPEND CMAKE_FIND_ROOT_PATH "${QT_PREFIX}")
+set(Qt5_DIR "${QT_PREFIX}/lib/cmake/Qt5" CACHE PATH "项目内 Qt 配置" FORCE)
+foreach(component Core Gui Widgets Concurrent)
+    set(Qt5${component}_DIR "${QT_PREFIX}/lib/cmake/Qt5${component}" CACHE PATH "项目内 Qt 模块" FORCE)
+endforeach()
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_CXX_STANDARD 17)
 find_package(Qt5 5.15.12 EXACT REQUIRED COMPONENTS Core Gui Widgets Concurrent)
@@ -26,11 +24,13 @@ target_include_directories(huiwen_native PRIVATE "${workspace_root}/src")
 target_link_libraries(huiwen_native PRIVATE ace_napi.z.so hilog_ndk.z.so Qt5::Core)
 add_subdirectory("${workspace_root}" "${CMAKE_CURRENT_BINARY_DIR}/qt_app")
 
-# 只部署所需运行时，不复制整套 Qt；目录是被 Git 忽略的本机构建输入。
-set(runtime_dir "${CMAKE_CURRENT_SOURCE_DIR}/../../../libs/arm64-v8a")
-file(MAKE_DIRECTORY "${runtime_dir}")
-foreach(component Core Gui Widgets Concurrent)
-    configure_file("${QT_PREFIX}/lib/libQt5${component}.so" "${runtime_dir}/libQt5${component}.so" COPYONLY)
-endforeach()
-configure_file("${QT_PREFIX}/plugins/platforms/libplugins_platforms_qopenharmony.so"
-               "${runtime_dir}/libplugins_platforms_qopenharmony.so" COPYONLY)
+# 更新本项目生成的库；Hvigor 同时从原生输出和 libs 收集运行库。
+add_custom_command(TARGET huiwen_native POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:huiwen_native>"
+            "${project_root}/entry/libs/arm64-v8a/$<TARGET_FILE_NAME:huiwen_native>"
+    COMMENT "同步 huiwen_native 动态库到 entry/libs/arm64-v8a")
+
+# PDFium 由 Run 的准备任务生成并部署，此阶段仅随包分发，不接入预览。
+if(NOT EXISTS "${project_root}/entry/libs/arm64-v8a/libpdfium.so")
+    message(FATAL_ERROR "缺少 libpdfium.so，请运行 packaging/ohos/build_pdfium.py")
+endif()

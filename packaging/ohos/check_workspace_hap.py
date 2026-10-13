@@ -10,6 +10,7 @@ def check_hap(path: Path) -> None:
     libraries = [
         "libhuiwen_native.so", "libhuiwen_qt.so", "libQt5Core.so", "libQt5Gui.so",
         "libQt5Widgets.so", "libQt5Concurrent.so", "libplugins_platforms_qopenharmony.so",
+        "libpdfium.so",
     ]
     with zipfile.ZipFile(path) as hap:
         for library in libraries:
@@ -24,7 +25,10 @@ def check_hap(path: Path) -> None:
         assert {"EntryAbility", "QtWorkspaceAbility"} <= abilities
         assert {"package": "huiwen_python.hnp", "type": "private"} in module["hnpPackages"]
         assert len(hap.read("hnp/arm64-v8a/huiwen_python.hnp")) > 0
-    print("HAP_CHECK_OK: 7 个 ARM64 原生库、两个 Ability 与私有 Python HNP")
+        for name in ("qt", "pdfium"):
+            prefix = f"resources/rawfile/third_party_licenses/{name}/"
+            assert any(entry.startswith(prefix) and "LICENSE" in entry for entry in hap.namelist()), name
+    print("HAP_CHECK_OK: 8 个 ARM64 原生库、两个 Ability、Python HNP 与 Qt/PDFium 许可证")
 
 
 if __name__ == "__main__":

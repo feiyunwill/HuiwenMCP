@@ -3,6 +3,33 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// 每次 Run 都先检查 PDFium 源码并增量构建，再收集 libs 和许可证资源。
+const prepareNativeDependenciesPlugin = {
+  pluginId: 'huiwen.prepare-native-dependencies',
+  apply(node: any) {
+    node.registerTask({
+      name: 'PrepareNativeDependencies',
+      dependencies: ['default@PreBuild'],
+      postDependencies: ['default@ConfigureCmake', 'default@ProcessLibs', 'default@CompileResource'],
+      run: (context: any) => {
+        const projectRoot = path.resolve(context.modulePath.toString(), '..');
+        const propertiesFile = path.join(projectRoot, 'local.properties');
+        const properties = fs.existsSync(propertiesFile) ? fs.readFileSync(propertiesFile, 'utf8') : '';
+        const pythonSetting =
+          process.env.HOST_PYTHON ?? properties.match(/^\s*python\.host\.path\s*=\s*(.+)$/m)?.[1].trim() ?? 'python3';
+        const python = pythonSetting.includes(path.sep) ? path.resolve(projectRoot, pythonSetting) : pythonSetting;
+        if (!fs.existsSync(path.join(projectRoot, 'third_party/qt/sdk.json'))) {
+          throw new Error('缺少项目内 Qt 开发包；请先运行 packaging/ohos/prepare_qt.py');
+        }
+        execFileSync(python, [path.join(projectRoot, 'packaging/ohos/build_pdfium.py')], {
+          cwd: projectRoot,
+          stdio: 'inherit'
+        });
+      }
+    });
+  }
+};
+
 // 每次运行此任务先生成新 HNP，再在签名前重打未签名 HAP。
 const repackHapWithHnpPlugin = {
   pluginId: 'huiwen.repack-hap-with-hnp',
@@ -113,5 +140,5 @@ const repackHapWithHnpPlugin = {
 
 export default {
   system: hapTasks /* Built-in plugin of Hvigor. It cannot be modified. */,
-  plugins: [repackHapWithHnpPlugin]
+  plugins: [prepareNativeDependenciesPlugin, repackHapWithHnpPlugin]
 };

@@ -20,6 +20,10 @@ set(workspace_sources
 if(CMAKE_SYSTEM_NAME STREQUAL "OHOS")
     add_library(huiwen_qt SHARED ${workspace_sources})
     target_link_libraries(huiwen_qt PRIVATE huiwen_native Qt5::QOpenHarmonyPlatformIntegrationPlugin)
+    add_custom_command(TARGET huiwen_qt POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:huiwen_qt>"
+                "${project_root}/entry/libs/arm64-v8a/$<TARGET_FILE_NAME:huiwen_qt>"
+        COMMENT "同步 huiwen_qt 动态库到 entry/libs/arm64-v8a")
 else()
     add_executable(huiwen_qt ${workspace_sources})
 endif()

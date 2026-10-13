@@ -13,6 +13,8 @@
 ## 当前状态
 
 - 首页保持 ArkTS；PDF/MD 预览按钮仍只导入文件，PDF 转 MD 按钮改为启动独立 Qt 工作区。
+- Qt 开发依赖保存在 `third_party/qt/`，运行库从 `entry/libs/arm64-v8a/` 链接并随 HAP 分发；PDFium fork 保存在 `third_party/pdfium/`，暂不接入预览。
+- DevEco Run 构建前执行 `PrepareNativeDependencies`，按当前 PDFium 源码增量生成 `libpdfium.so`；Qt/NAPI 的 C++ 编译后同步新库到 `libs`。没有保存源码自动构建、应用内动态替换库或保持进程状态的热重载。
 - Qt 工作区默认最大化并保留系统标题栏和窗口边框，输入、输出区域解耦；中部分割线可拖动，悬浮“转化”按钮随分隔线移动。
 - 输入文件卡片调用现有 DocumentStore 选择 PDF、复制沙箱并安排输出路径。Qt ConversionService 在工作线程复用 PythonRunner 转换，成功后显示 MD 文件卡片。本阶段不渲染 PDF/MD 内容。
 - 原有 Python HNP 自检与 PDF 转换已由用户在真机验证成功。新增 Qt 窗口交接、选择与结果位置操作需要真机验收。
@@ -41,8 +43,8 @@ HuiWenMCP/
 │   │       ├── napi_bridge.cpp        [已有] ArkTS → C++ 的 NAPI 接口
 │   │       ├── python_runner.cpp/.h   [已有] 定位 HNP、启动固定自检或转换脚本
 │   │       └── types/                 [已有] 原生模块的 ArkTS 类型声明
-│   ├── libs/arm64-v8a/                [生成] 仅最小 Qt 运行库，不进入 Git
-│   │   └── libQt5{Core,Gui,Widgets,Concurrent}.so、libplugins_platforms_qopenharmony.so
+│   ├── libs/arm64-v8a/                [生成] Qt、PDFium 与本项目动态库，不进入 Git
+│   │   └── libQt5{Core,Gui,Widgets,Concurrent}.so、QPA、libpdfium.so、libhuiwen_{native,qt}.so
 │   ├── build-profile.json5            [已有] HAP 构建与 ABI 配置
 │   ├── hvigorfile.ts                   [已有] 每次运行构建生成 Python HNP，并在 HAP 签名前注入
 │   └── oh-package.json5               [已有] 模块依赖
@@ -80,8 +82,11 @@ HuiWenMCP/
 │   ├── windows/
 │   └── macos/
 ├── tests/pdf_samples/                 [规划] 文字、双栏、表格等转换样本
-├── third_party/markitdown/            [子模块] Microsoft MarkItDown v0.1.8 原始源码
-├── third_party_licenses/             [规划] 产品分发所需的许可材料
+├── third_party/
+│   ├── markitdown/                   [子模块] MarkItDown fork
+│   ├── pdfium/                       [子模块] PDFium fork 与鸿蒙构建补丁
+│   └── qt/                           [本机依赖] Qt 头文件、CMake 配置及宿主工具
+├── entry/src/main/resources/rawfile/third_party_licenses/ [生成] Qt/PDFium 许可材料，随包分发
 ├── CMakeLists.txt                     [规划] Qt 桌面工程入口
 ├── build-profile.example.json5       [已有] 不含签名信息的全局构建配置模板
 ├── build-profile.json5               [本机] 签名配置，已被 Git 忽略
@@ -131,14 +136,30 @@ HuiWenMCP/
 
 ## 本地构建
 
-工程当前配置为 HarmonyOS PC、`arm64-v8a`，目标 SDK 为 `6.1.1(24)`。首次克隆后，将 `build-profile.example.json5` 复制为本机的 `build-profile.json5`，需要安装到设备时再在 DevEco Studio 配置签名。鸿蒙模块的 NAPI `.so` 由 CMake 从源码构建，Qt 运行库从本机鸿蒙 Qt 5.15.12 SDK 复制。配置方式任选其一：
+工程当前配置为 HarmonyOS PC、`arm64-v8a`，目标 SDK 为 `6.1.1(24)`。首次克隆后，将 `build-profile.example.json5` 复制为本机的 `build-profile.json5`，需要安装到设备时再在 DevEco Studio 配置签名。
 
-```properties
-# 被 Git 忽略的 local.properties，使用你自己的 SDK 绝对路径
-qt.sdk.dir=/绝对路径/Qt5.15.12-ohos17-arm64-v8a
+Qt 运行库已经使用 `.so`。首次准备开发依赖时，从同一套鸿蒙 Qt 5.15.12 SDK 导入所需头文件、官方 CMake 配置、mkspecs、宿主工具和五个运行库：
+
+```sh
+python3 packaging/ohos/prepare_qt.py \
+  --source /绝对路径/Qt5.15.12-ohos17-arm64-v8a \
+  --license-source /对应的/qtbase源码目录
 ```
 
-或为构建进程设置 `QT_PREFIX`。CMake 只复制 Core、Gui、Widgets、Concurrent 与 QPA 五个运行库到 `entry/libs/arm64-v8a/`；不会上传整套 Qt。库应来自同一 ARM64 SDK。
+`--source` 也可由原有 `qt.sdk.dir` 或 `QT_PREFIX` 指定，但它们只用于准备/升级依赖，正常 CMake 构建使用项目内 `third_party/qt/`。库的唯一部署位置是 `entry/libs/arm64-v8a/`，Qt 开发包内通过相对符号链接引用；宿主工具必须匹配构建电脑。修改 Qt 内核后需先编译新的 SDK，再执行准备命令同步整套依赖。
+
+PDFium fork 为 `xristosstarnetgames439-del/pdfium` 的 `huiwen-dev` 分支，首次同步提交记录官方源码 SHA；主项目固定子模块提交。首次构建会准备 DEPS 锁定的 Git 依赖、GN 和 Clang，之后由 Ninja 增量编译当前工作树，不重置用户的源码修改：
+
+```sh
+git submodule update --init third_party/pdfium
+python3 packaging/ohos/build_pdfium.py --sync
+```
+
+脚本使用鸿蒙 NDK sysroot、归档器和链接驱动，生成 `aarch64-linux-ohos` 动态库；内部 libc++ 静态链接，关闭 V8、XFA、Skia 和 PartitionAlloc，保留公开渲染、编辑及保存接口。通过 ELF 架构、必要导出和动态依赖检查后，原子更新 `entry/libs/arm64-v8a/libpdfium.so`，同时生成源码/构建参数/校验值记录及分发许可材料。构建失败不会覆盖有效旧库，但会阻止新 HAP 生成。可设置 `OHOS_NDK_HOME` 指向 `native/`。
+
+DevEco Run 的顺序为 `PreBuild → PrepareNativeDependencies → ConfigureCmake / CompileResource → BuildNativeWithNinja → ProcessLibs → PackageHap → RepackHapWithHnp → SignHap`。PDFium 编译和 Qt/NAPI 库同步在收集原生库之前完成；未改动的源码复用产物。这里只实现运行构建时更新，没有文件监听器，也没有在运行进程内卸载和替换 C++ 库。
+
+需要核对更新链路时，可运行 `python3 packaging/ohos/check_run_update.py`。它临时向 PDFium 加入两版构建探针，分别执行 HAP 构建并核对 `libs` 与 HAP 中的实际库内容，最后移除探针并重建最终包；不会安装或启动设备应用。该检查需要已配置可用的 HAP 签名，也会执行原有 Python HNP 打包。
 
 首次克隆时连同固定版本的 MarkItDown 子模块一起下载：
 
@@ -188,7 +209,7 @@ hvigorw assembleHap --mode module -p product=default -p module=entry@default
 - 新增功能时更新“当前状态”，区分已运行的能力与尚未接入的入口。
 - 调整模块、原生库或打包方式时更新“工程结构”和“本地构建”。
 - 不把生成的 HAP、构建缓存或本机 SDK 路径写成跨机器通用的依赖。
-- 不提交 `entry/libs/` 下的本机 Qt 运行库；NAPI 与 Qt 应用 `.so` 从源码构建，Qt 运行库从本机 SDK 复制。
+- 不提交 `entry/libs/` 和 `third_party/qt/` 中的本机开发依赖；NAPI、Qt 应用与 PDFium `.so` 按源码增量生成，Qt 运行库由准备脚本导入。主仓库只固定 PDFium 子模块提交，fork 修改在其独立仓库维护。
 
 ## Qt 工作区验收
 
