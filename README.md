@@ -4,9 +4,9 @@
 
 ## 许可证
 
-本项目自有代码采用 [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0)。这是源码公开的非商业使用许可。
+本项目自有代码采用 [PolyForm Noncommercial License 1.0.0](LICENSE)，官方原文见 [PolyForm 网站](https://polyformproject.org/licenses/noncommercial/1.0.0)。这是源码公开的非商业使用许可。
 
-允许在许可规定的用途范围内使用、学习、研究、修改和分发。商业产品开发、销售、商业服务等超出许可范围的用途，需要另行取得相关权利人的授权。许可对教育机构等组织另有允许用途规定，以官方许可原文为准。
+允许在许可规定的用途范围内使用、学习、研究、修改和分发。商业产品开发、销售、商业服务等超出许可范围的用途，需要另行取得相关权利人的授权。许可对教育机构等组织另有允许用途规定，以 `LICENSE` 原文为准。
 
 第三方源码、依赖和资源仍遵循各自的许可证及版权声明，不受本项目许可证替代。贡献代码前，请确认你有权将该贡献按本项目许可证授权。
 
