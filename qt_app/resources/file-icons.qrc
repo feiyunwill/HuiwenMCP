@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/file-icons">
+        <file alias="pdf.png">file-icons/pdf.png</file>
+        <file alias="md.png">file-icons/md.png</file>
+        <file alias="docx.png">file-icons/docx.png</file>
+        <file alias="xlsx.png">file-icons/xlsx.png</file>
+        <file alias="pptx.png">file-icons/pptx.png</file>
+        <file alias="txt.png">file-icons/txt.png</file>
+        <file alias="photo.png">file-icons/photo.png</file>
+        <file alias="genericfile.png">file-icons/genericfile.png</file>
+    </qresource>
+</RCC>

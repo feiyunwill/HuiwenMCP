@@ -1,6 +1,7 @@
 /* 通用文件卡片：绘制文件占位图与名称，点击行为由所属区域接入。 */
 #pragma once
 #include <QPushButton>
+#include <QPixmap>
 
 class FileCard : public QPushButton
 {
@@ -8,12 +9,16 @@ class FileCard : public QPushButton
     explicit FileCard(QWidget *parent = nullptr);
     void setFile(const QString &kind, const QString &name);
     void setPrompt(const QString &prompt, bool selectable);
+    QSize sizeHint() const override;
+    int heightForWidth(int width) const override;
 
   protected:
     void paintEvent(QPaintEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
   private:
     QString kind_;
     QString name_;
     QString prompt_;
+    QPixmap icon_;
 };
