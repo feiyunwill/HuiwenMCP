@@ -1,0 +1,101 @@
+{
+  "origin": "Tongda OpenQtCef working-tree snapshot",
+  "source_revision": "029b8db2c53d43cb378f93339f48531e4d0292e8",
+  "cef_version_header": "114.0.0-ceftest.4+gcbf6bb5+chromium-114.0.5735.248",
+  "target": "OpenHarmony arm64-v8a",
+  "activated": false,
+  "libraries": {
+    "libcef.so": {
+      "sha256": "76ef7b1416c73cd0578954e80b069a2f9524ffd205836c65b173b175bd414438",
+      "bytes": 170315776,
+      "needed": [
+        "libadapter.so",
+        "libadapter_c.so",
+        "libc.so",
+        "libhilog_ndk.z.so",
+        "libohhicollie.so",
+        "libqos.so",
+        "libnet_connection.so",
+        "libohcommonevent.so",
+        "libhitrace_ndk.z.so",
+        "libnative_avscreen_capture.so",
+        "libnative_buffer.so",
+        "libnative_drawing.so",
+        "libudmf.so",
+        "libpasteboard.so",
+        "libpixelmap.so",
+        "libability_access_control.so",
+        "libnative_image.so",
+        "libace_ndk.z.so",
+        "libnative_window.so",
+        "libohinput.so",
+        "libohinputmethod.so",
+        "libohaudio.so",
+        "libnative_media_codecbase.so",
+        "libnative_media_core.so",
+        "libnative_media_vdec.so",
+        "libnative_media_venc.so",
+        "libnative_drm.so",
+        "libnative_media_avcencinfo.so",
+        "libohcamera.so",
+        "libdeviceinfo_ndk.z.so",
+        "libhuks_ndk.z.so",
+        "libbundle_ndk.z.so",
+        "libohavsession.so",
+        "libnative_media_acodec.so",
+        "libohsensor.so",
+        "liblocation_ndk.so",
+        "libimage_source.so",
+        "libnative_vsync.so",
+        "libc++_shared.so"
+      ]
+    },
+    "libadapter.so": {
+      "sha256": "f77b9046765d44433f2adac3f57fff5c6fa43ba999f48b81de99cfb1154c2f22",
+      "bytes": 1651672,
+      "needed": [
+        "libhilog_ndk.z.so",
+        "libhitrace_ndk.z.so",
+        "libnative_window.so",
+        "libtime_service_ndk.so",
+        "libchild_process.so",
+        "libbundle_ndk.z.so",
+        "libc.so",
+        "libace_napi.z.so",
+        "libdeviceinfo_ndk.z.so",
+        "libace_ndk.z.so",
+        "libimage_ndk.z.so",
+        "libudmf.so",
+        "libpixelmap.so",
+        "libohfileuri.so",
+        "libimage_receiver_ndk.z.so",
+        "libipc_capi.so",
+        "libohcommonevent.so",
+        "libability_access_control.so"
+      ]
+    },
+    "libc++_shared.so": {
+      "sha256": "67e1b2669a2bc35560bc8dd2048b48653bff7c19a58ac6e60b4ba0ca39991703",
+      "bytes": 1262056,
+      "needed": [
+        "libc.so"
+      ]
+    },
+    "libadapter_c.so": {
+      "sha256": "3adf231e9bbb5d54223037758bd20c7abb6a6bed640dacf928b8345476aac7b2",
+      "bytes": 190400,
+      "needed": [
+        "libhilog_ndk.z.so",
+        "libace_napi.z.so",
+        "libuv.so",
+        "libace_ndk.z.so",
+        "libc++_shared.so",
+        "libc.so"
+      ]
+    }
+  },
+  "copied_files": 1150,
+  "copied_bytes": 200480374,
+  "license_materials": "CEF header BSD notice; Chromium/vendor notices incomplete",
+  "adapter_c": "Copied stripped prebuilt library; not rebuilt from migrated sources"
+}
