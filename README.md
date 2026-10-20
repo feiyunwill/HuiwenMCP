@@ -13,7 +13,7 @@
 ## 当前状态
 
 - 首页保持 ArkTS；PDF/MD 预览按钮仍只导入文件，PDF 转 MD 按钮改为启动独立 Qt 工作区。
-- Qt 开发依赖保存在 `third_party/qt/`，运行库从 `entry/libs/arm64-v8a/` 链接并随 HAP 分发；PDFium fork 保存在 `third_party/pdfium/`，Qt 左侧输入区域已接入其公开 C API 实现正文预览；新增功能尚未编译、打包或真机验收。
+- Qt 开发依赖保存在 `third_party/qt/`，运行库从 `entry/libs/arm64-v8a/` 链接并随 HAP 分发；PDFium fork 保存在 `third_party/pdfium/`，Qt 左侧输入区域已接入其公开 C API 实现正文预览；已完成鸿蒙编译、HAP 打包；系统目录跳转沿用原有实现。
 - DevEco Run 构建前执行 `PrepareNativeDependencies`，按当前 PDFium 源码增量生成 `libpdfium.so`；Qt/NAPI 的 C++ 编译后同步新库到 `libs`。没有保存源码自动构建、应用内动态替换库或保持进程状态的热重载。
 - Qt 工作区默认最大化并保留系统标题栏和窗口边框，输入、输出区域解耦；中部分割线可拖动，悬浮“转化”按钮随分隔线移动。
 - 输入文件卡片调用现有 DocumentStore 选择 PDF、复制沙箱并安排输出路径。导入成功后上方显示“预览”和“更换文件”，点击“预览”才切换为多页正文；支持滚动，随窗口/分栏宽度等比排版并重新渲染，可返回文件卡片。PDFium 后台串行渲染可见页，连续尺寸变化合并请求；位图缓存上限为 64 MiB，超长页面降低采样分辨率。Qt ConversionService 仍复用 PythonRunner 转换，右侧成功后显示 MD 文件卡片。
@@ -123,19 +123,18 @@ HuiWenMCP/
 /data/app/el2/100/base/cn.com.HuiWenMCP/
 └── files/
     ├── inputs/
-    │   ├── pdf/                 PDF 预览、PDF 转 MD 选入的副本
-    │   └── md/                  MD 预览选入的副本
+    │   └── YYYY-MM-DD/          当天选入的 PDF、MD 副本，保留原名
     └── outputs/
-        └── md/                  PDF 转换生成的 Markdown
+        └── YYYY-MM-DD/          当天导入的 PDF 对应的 Markdown
 ```
 
 | 按钮 | 选取后记录的路径 | 本阶段行为 |
 | --- | --- | --- |
-| PDF 预览 | `files/inputs/pdf/<唯一编号>.pdf` | 打开系统选择器、复制文件、留在首页 |
-| MD 预览 | `files/inputs/md/<唯一编号>.md`（选择 `.markdown` 时保留该后缀） | 打开系统选择器、复制文件、留在首页 |
-| PDF 转 MD | 输入：`files/inputs/pdf/<唯一编号>.pdf`；输出：`files/outputs/md/<原文件名>-<唯一编号>.md` | 首页打开 Qt；Qt 输入区域选取文件，点击转化后显示 MD 卡片 |
+| PDF 预览 | `files/inputs/YYYY-MM-DD/<原文件名>.pdf` | 打开系统选择器、复制文件、留在首页 |
+| MD 预览 | `files/inputs/YYYY-MM-DD/<原文件名>.md`（选择 `.markdown` 时保留该后缀） | 打开系统选择器、复制文件、留在首页 |
+| PDF 转 MD | 输入：`files/inputs/YYYY-MM-DD/<原文件名>.pdf`；输出：`files/outputs/YYYY-MM-DD/<原文件名>.md` | 首页打开 Qt；Qt 输入区域选取文件，点击转化后显示 MD 卡片 |
 
-系统选择器返回的 URI 只用于读取选中文件；应用内部后续使用沙箱副本路径。转换成功后才生成非空 `.md` 文件并显示路径；文字无法提取的扫描件会提示需要 OCR，不生成空结果。ArkTS 首页仍只导入文件，正文预览由 Qt 工作区左侧的“预览”按钮进入。MD 卡片通过 `openLink('filemanager://openDirectory')` 和 `parameters.fileUri` 传入生成文件的 URI，请求系统文件管理器定位其所在的 `outputs/md/`；失败直接显示错误，不弹出保存选择器或导出副本。内部路径继续由 `Context.filesDir` 获取，鸿蒙 PC 文件管理器中的对应展示位置为 `/storage/Users/currentUser/appdata/el2/base/cn.com.HuiWenMCP/files/outputs/md`，实际定位能力需真机验证。
+系统选择器返回的 URI 只用于读取选中文件；应用内部后续使用沙箱副本路径。转换成功后才生成非空 `.md` 文件并显示路径；文字无法提取的扫描件会提示需要 OCR，不生成空结果。ArkTS 首页仍只导入文件，正文预览由 Qt 工作区左侧的“预览”按钮进入。点击 MD 卡片沿用原有系统文件管理器跳转；鸿蒙通过 ArkTS 的 `openLink('filemanager://openDirectory')` 传入结果文件 URI。底部继续显示生成的完整 MD 路径，不增加应用内目录窗口，不导出或移动文件。内部路径由应用级 `Context.filesDir` 获取，与模块级 `haps/entry/files` 不同。转换成功前与点击结果时都会校验文件；不存在、为空或不可读取时显示错误。
 
 ## 本地构建
 
@@ -222,7 +221,9 @@ hvigorw assembleHap --mode module -p product=default -p module=entry@default
 2. 左右文档区域占满状态栏上方的可用高度，底部状态栏保持紧凑；还原窗口并调整大小时布局应同步变化。悬停中间细线出现水平分割光标；拖动改变两侧宽度，底部小型“转化”按钮保持居中在线上。
 3. 点击左侧虚线加号选择 PDF，取消应保留原状态；选取后显示 PDF 占位图和原文件名，上方出现“预览”和“更换文件”。点击“预览”应显示正文，滚动可查看后续页；拖动分隔线或缩放窗口后，页面应按当前可用宽度等比重排并重新渲染。“返回文件”回到卡片；更换文件后回到卡片，从新文件第一页开始预览。损坏、加密文件应提示原因。
 4. 点击“转化”，操作期间不能重复选择或提交。成功后右侧显示 MD 占位图和输出文件名；失败在底部显示错误。再选一个 PDF 检查重复导入。
-5. 点击 MD 卡片，应打开系统文件管理器并定位 `files/outputs/md`，不出现保存弹窗；原 MD 文件位置不变。查看 `QtWorkspace` 标签下的 `HUIWEN_QT_OPEN_REQUEST`（目录与文件 URI）、`HUIWEN_QT_OPEN_REQUEST_ACCEPTED`（仅表示拉起请求成功）或 `HUIWEN_QT_OPEN_FAILED`（错误码与消息）。请求成功但定位到错误目录时，也需记录实际打开位置，不能仅凭成功日志判定验收通过。
+5. 转换成功后底部显示完整 MD 路径；点击 MD 卡片，沿用系统文件管理器打开文件夹，文件夹内能看到真实 MD。不存在、为空或不可读取的结果应在跳转前明确报错，不能误报转换成功。
+6. 日志搜索 `HUIWEN_OUTPUT`：`import_success` 为导入落盘路径，`convert_start` 为输入/输出路径，`verified` 为磁盘验证及字节数，`convert_success` 为成功通知，`locate_start` 为点击时重新检查，`locate_requested` 为鸿蒙桥接已提交。系统跳转结果继续查看原有 `HUIWEN_QT_OPEN_REQUEST`、`HUIWEN_QT_OPEN_REQUEST_ACCEPTED` 或 `HUIWEN_QT_OPEN_FAILED`。
+7. 新导入按本地日期归档，例如 `inputs/2026-10-20/中文 报告.pdf`、`outputs/2026-10-20/中文 报告.md`，不再追加随机串。同一天同名输入或输出已存在时，两者统一追加 ` (2)`、` (3)`，避免覆盖；同一次导入后再次转换仍更新当前结果。日期在导入时确定；历史目录及文件保留，旧 `outputs/md/` 仍支持原有文件管理器跳转。Markdown 导入同样归入当天 `inputs/` 目录。
 
 HAP 包结构校验：
 
@@ -241,4 +242,4 @@ cmake --build /tmp/huiwen-preview-check
 QT_QPA_PLATFORM=offscreen /tmp/huiwen-preview-check/pdf_preview_check
 ```
 
-该检查生成两页彩色 PDF，验证导入后按钮、真实页面像素、多页滚动、调整宽度、更换文档与忙碌状态。本次仅做静态/格式检查，未执行此桌面回归、C++ 编译、HAP 打包和设备预览。
+该检查生成两页彩色 PDF，验证导入后按钮、真实页面像素、多页滚动、调整宽度、更换文档与忙碌状态。鸿蒙 C++ 编译及 HAP 打包已通过。

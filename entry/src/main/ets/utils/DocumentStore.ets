@@ -4,6 +4,49 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { fileIo, fileUri, picker } from '@kit.CoreFileKit';
 import hilog from '@ohos.hilog';
 
+interface WorkFilePaths {
+  inputDir: string;
+  outputDir: string;
+  inputPath: string;
+  outputPath: string;
+}
+
+function dailyDocumentPaths(root: string, name: string, extension: string, forConversion: boolean): WorkFilePaths {
+  const date: Date = new Date();
+  const day: string = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const inputDir: string = `${root}/inputs/${day}`;
+  const outputDir: string = forConversion ? `${root}/outputs/${day}` : '';
+  let stem: string = name.slice(0, name.lastIndexOf('.')).replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').slice(0, 80).trim();
+  const last: number = stem.charCodeAt(stem.length - 1);
+  if (last >= 0xD800 && last <= 0xDBFF) {
+    stem = stem.slice(0, -1);
+  }
+  if (stem.length === 0 || stem === '.' || stem === '..') {
+    stem = 'document';
+  }
+  for (let index: number = 1; index <= 10000; index++) {
+    const suffix: string = index === 1 ? '' : ` (${index})`;
+    const inputPath: string = `${inputDir}/${stem}${suffix}.${extension}`;
+    const outputPath: string = forConversion ? `${outputDir}/${stem}${suffix}.md` : '';
+    if (!sandboxPathExists(inputPath) && (!forConversion || !sandboxPathExists(outputPath))) {
+      return { inputDir, outputDir, inputPath, outputPath };
+    }
+  }
+  throw new Error('同名文件过多，请更换文件名');
+}
+
+function sandboxPathExists(path: string): boolean {
+  try {
+    return fileIo.accessSync(path);
+  } catch (error) {
+    const failure = error as BusinessError;
+    if (failure.code === 13900002) {
+      return false;
+    }
+    throw importError('检查沙箱文件', failure);
+  }
+}
+
 function importError(stage: string, error: BusinessError): Error {
   const code = String(error.code ?? 'unknown');
   hilog.error(0xFF00, 'DocumentStore', '%{public}s failed: code=%{public}s', stage, code);
@@ -55,18 +98,13 @@ export async function pickDocumentToSandbox(context: common.UIAbilityContext, ki
 
   // 使用应用级 filesDir；设备上的物理目录位于当前用户的包名沙箱下。
   const filesDir = context.getApplicationContext().filesDir;
-  const id = `${Date.now().toString(36)}-${Math.floor(Math.random() * 0x100000000).toString(36)}`;
-  const inputDir = `${filesDir}/inputs/${kind}`;
   const extension = name.toLowerCase().endsWith('.markdown') ? 'markdown' : kind;
-  const inputPath = `${inputDir}/${id}.${extension}`;
-  ensureDirectory(inputDir, '创建输入目录');
-
-  let outputPath = '';
+  const paths: WorkFilePaths = dailyDocumentPaths(filesDir, name, extension, forConversion);
+  const inputPath: string = paths.inputPath;
+  const outputPath: string = paths.outputPath;
+  ensureDirectory(paths.inputDir, '创建输入目录');
   if (forConversion) {
-    const outputDir = `${filesDir}/outputs/md`;
-    ensureDirectory(outputDir, '创建输出目录');
-    const stem = name.replace(/\.pdf$/i, '').replace(/[^A-Za-z0-9_\u4e00-\u9fa5-]/g, '_').slice(0, 80);
-    outputPath = `${outputDir}/${stem || 'document'}-${id}.md`;
+    ensureDirectory(paths.outputDir, '创建输出目录');
   }
 
   // Picker 的 URI 只有选取授权；复制后 C++ 和 Python 使用沙箱内的路径。
@@ -89,5 +127,7 @@ export async function pickDocumentToSandbox(context: common.UIAbilityContext, ki
     await fileIo.close(source);
   }
 
+  hilog.info(0xFF00, 'DocumentStore', 'HUIWEN_OUTPUT stage=import_success input=%{public}s output=%{public}s',
+    inputPath, outputPath);
   return { name, uri, inputPath, outputPath };
 }

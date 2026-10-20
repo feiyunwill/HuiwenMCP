@@ -1,5 +1,6 @@
 /* 沙箱服务实现：鸿蒙异步请求 ArkTS；桌面使用 Qt 选择器及应用数据目录。 */
 #include "SandboxService.h"
+#include <QDebug>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
@@ -65,9 +66,27 @@ void SandboxService::selectPdf()
 
 void SandboxService::openResultLocation(const QString &path)
 {
+    const QFileInfo output(path);
+    qInfo().noquote() << "HUIWEN_OUTPUT stage=locate_start path=" << path
+                     << "exists=" << output.exists() << "bytes=" << output.size();
+    // 结果生成后仍可能被删除；点击时重新校验，不能打开一个看似成功的空目录。
+    if (!output.isAbsolute() || output.suffix().compare(QStringLiteral("md"), Qt::CaseInsensitive) != 0 ||
+        !output.isFile() || !output.isReadable() || output.size() <= 0)
+    {
+        qWarning().noquote() << "HUIWEN_OUTPUT stage=locate_failed path=" << path;
+        emit failed(QStringLiteral("Markdown 文件不存在、为空或不可读取：") + path);
+        return;
+    }
 #ifdef Q_OS_OPENHARMONY
-    if (!QtBridge::instance().request("open", path))
+    // 沿用原有 ArkTS 文件管理器跳转，仅在请求前验证真实结果并记录路径。
+    if (!QtBridge::instance().request("open", output.absoluteFilePath()))
+    {
+        qWarning().noquote() << "HUIWEN_OUTPUT stage=locate_failed reason=bridge_unavailable";
         emit failed(QStringLiteral("鸿蒙输出位置接口尚未就绪"));
+    }
+    else
+        qInfo().noquote() << "HUIWEN_OUTPUT stage=locate_requested directory=" << output.absolutePath()
+                         << "file=" << output.fileName();
 #else
     if (!QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath())))
         emit failed(QStringLiteral("无法打开输出目录"));

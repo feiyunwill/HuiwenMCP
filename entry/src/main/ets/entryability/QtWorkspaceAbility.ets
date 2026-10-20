@@ -92,10 +92,12 @@ export default class QtWorkspaceAbility extends UIAbility {
   }
 
   private async openOutputLocation(path: string): Promise<void> {
-    const outputDir = `${this.context.getApplicationContext().filesDir}/outputs/md/`;
-    if (!path.startsWith(outputDir) || path.includes('/../') || !path.endsWith('.md')) {
+    const outputRoot: string = `${this.context.getApplicationContext().filesDir}/outputs/`;
+    if (!path.startsWith(outputRoot) || /[\\\u0000]/.test(path) ||
+      /\/(\.|\.\.)\//.test(path) || !path.toLowerCase().endsWith('.md')) {
       throw new Error('输出路径不属于本应用 Markdown 沙箱');
     }
+    const outputDir: string = path.slice(0, path.lastIndexOf('/'));
     // 文件管理器按文件 URI 定位所在目录，不再用保存选择器导出副本。
     const uri = fileUri.getUriFromPath(path);
     const options: OpenLinkOptions = {
