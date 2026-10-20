@@ -12,10 +12,10 @@ ConvertButton::ConvertButton(QWidget *parent) : QPushButton(QStringLiteral("转�
     setState(false, false);
 }
 
-void ConvertButton::setState(bool hasDocument, bool busy)
+void ConvertButton::setState(bool hasDocument, bool busy, bool retry)
 {
     setEnabled(hasDocument && !busy);
-    setText(busy ? QStringLiteral("转化中…") : QStringLiteral("转化"));
+    setText(busy ? QStringLiteral("转化中…") : retry ? QStringLiteral("重新转化") : QStringLiteral("转化"));
     const QFontMetrics metrics = fontMetrics();
     setFixedSize(std::max(busy ? 128 : 96, metrics.horizontalAdvance(text()) + 24),
                  std::max(40, metrics.height() + 4));

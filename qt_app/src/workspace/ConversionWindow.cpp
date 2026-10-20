@@ -64,13 +64,14 @@ ConversionWindow::ConversionWindow(QWidget *parent)
             {
                 picking_ = true;
                 refreshBusyState();
-                status_->clear();
                 sandbox_->selectPdf();
             });
     connect(sandbox_, &SandboxService::documentSelected, this,
             [this](const DocumentItem &document)
             {
                 document_ = document;
+                retry_ = false;
+                status_->clear();
                 source_->setDocuments({document});
                 result_->setResultFile({});
             });
@@ -93,18 +94,20 @@ ConversionWindow::ConversionWindow(QWidget *parent)
                 conversion_->convertPdfToMd(document_.inputPath, document_.outputPath);
             });
     connect(conversion_, &ConversionService::succeeded, this,
-            [this](const QString &path)
+            [this](const QString &path, const QString &message)
             {
                 converting_ = false;
+                retry_ = false;
                 result_->setResultFile(path);
-                status_->setText(QStringLiteral("MD 文件已生成：") + path);
+                status_->setText(QStringLiteral("[code=0] %1 路径：%2").arg(message, path));
                 refreshBusyState();
             });
     connect(conversion_, &ConversionService::failed, this,
-            [this](const QString &message)
+            [this](int code, const QString &message)
             {
                 converting_ = false;
-                status_->setText(QStringLiteral("转化失败：") + message);
+                retry_ = true;
+                status_->setText(QStringLiteral("[code=%1] %2").arg(code).arg(message));
                 refreshBusyState();
             });
 }
@@ -135,6 +138,6 @@ void ConversionWindow::placeConvertButton()
 void ConversionWindow::refreshBusyState()
 {
     source_->setBusy(picking_ || converting_);
-    button_->setState(!document_.inputPath.isEmpty(), picking_ || converting_);
+    button_->setState(!document_.inputPath.isEmpty(), picking_ || converting_, retry_);
     placeConvertButton();
 }
