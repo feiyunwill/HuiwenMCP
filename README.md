@@ -16,7 +16,7 @@
 - Qt 开发依赖保存在 `third_party/qt/`，运行库从 `entry/libs/arm64-v8a/` 链接并随 HAP 分发；PDFium fork 保存在 `third_party/pdfium/`，Qt 左侧输入区域已接入其公开 C API 实现正文预览；已完成鸿蒙编译、HAP 打包；系统目录跳转沿用原有实现。
 - DevEco Run 构建前执行 `PrepareNativeDependencies`，按当前 PDFium 源码增量生成 `libpdfium.so`；Qt/NAPI 的 C++ 编译后同步新库到 `libs`。没有保存源码自动构建、应用内动态替换库或保持进程状态的热重载。
 - Qt 工作区默认最大化并保留系统标题栏和窗口边框，输入、输出区域解耦；中部分割线可拖动，悬浮“转化”按钮随分隔线移动。
-- 输入文件卡片调用现有 DocumentStore 选择 PDF、复制沙箱并安排输出路径。导入成功后上方显示“预览”和“更换文件”，点击“预览”才切换为多页正文；支持滚动，随窗口/分栏宽度等比排版并重新渲染，可返回文件卡片。PDFium 后台串行渲染可见页，连续尺寸变化合并请求；位图缓存上限为 64 MiB，超长页面降低采样分辨率。Qt ConversionService 仍复用 PythonRunner 转换，右侧成功后显示 MD 文件卡片。
+- 输入文件卡片通过 DocumentStore 获取系统选取授权，再经 NAPI 调用 C++ harmony_sandbox 完成沙箱复制和路径安排。导入成功后上方显示“预览”和“更换文件”，点击“预览”才切换为多页正文；支持滚动，随窗口/分栏宽度等比排版并重新渲染，可返回文件卡片。PDFium 后台串行渲染可见页，连续尺寸变化合并请求；位图缓存上限为 64 MiB，超长页面降低采样分辨率。Qt ConversionService 仍复用 PythonRunner 转换，右侧成功后显示 MD 文件卡片。
 - 原有 Python HNP 自检与 PDF 转换已由用户在真机验证成功。新增 Qt 窗口交接、选择与结果位置操作需要真机验收。
 - 汇文 Python 包只公开 `pdf_to_md()`；后续格式在依赖和设备转换通过后再增加。
 
@@ -37,7 +37,7 @@ HuiWenMCP/
 │   │   │   ├── pages/HomePage.ets      [已有] ArkTS 首页和功能入口
 │   │   │   ├── pages/Index.ets         [已有] QPA 固定加载的 Qt XComponent 承载页
 │   │   │   ├── services/ConversionService.ets [已有] 页面调用原生转换的统一入口
-│   │   │   └── utils/DocumentStore.ets [已有] 文件选择、沙箱副本与输出路径
+│   │   │   └── utils/DocumentStore.ets [已有] 系统选取授权与 NAPI 适配
 │   │   └── cpp/
 │   │       ├── CMakeLists.txt          [已有] 原生库构建配置
 │   │       ├── napi_bridge.cpp        [已有] ArkTS → C++ 的 NAPI 接口
@@ -71,7 +71,10 @@ HuiWenMCP/
 │       ├── sandbox/
 │       │   ├── DocumentItem.h         文件格式、名称和输入/输出路径
 │       │   └── SandboxService.h/.cpp  请求系统选择、接收沙箱路径和打开输出位置
-│       └── platform/harmony/qt_bridge.h/.cpp   Qt ↔ ArkTS 线程桥
+│       └── platform/harmony/
+│           ├── qt_bridge.h/.cpp              Qt ↔ ArkTS 线程桥
+│           ├── harmony_sandbox.h/.cpp        鸿蒙沙箱规则与文件操作
+│           └── harmony_sandbox_napi.cpp      异步导入与输出校验 NAPI
 ├── hnp/arm64-v8a/                     [生成] 鸿蒙 Python 运行环境，不进入 Git
 │   └── huiwen_python.hnp               私有 HNP 归档，内部包含：
 │       ├── bin/python3                 Python 解释器
@@ -102,7 +105,7 @@ HuiWenMCP/
 
 当前 QPA 固定加载 `pages/Index`，不能让该路由同时作为 ArkTS 首页。`EntryAbility` 加载独立的 `pages/HomePage`；`Index.ets` 仅创建 Qt 的 NODE 类型 XComponent。`QtWorkspaceAbility.newLocalStorage()` 提供存储，QPA 写入 `idName` 并传给承载页。若在承载页放首页事件监听，会在 Qt 就绪时把 Qt Ability 也关闭；缺少存储方法则会产生 `newLocalStorage not found`、`Need object` 等日志。
 
-文件选择链为 `SourceDocumentView → SandboxService → QtBridge → QtWorkspaceAbility → DocumentStore`。Qt 请求进入 ArkTS 线程处理；结果经 NAPI 投递到 Qt 线程，不跨线程直接操作界面。新 Ability 使用自己的 Context，首页关闭后文件选择仍可继续。
+文件选择链为 `SourceDocumentView → SandboxService → QtBridge → QtWorkspaceAbility → DocumentStore`。Qt 请求进入 ArkTS 线程处理；结果经 NAPI 投递到 Qt 线程，不跨线程直接操作界面。新 Ability 使用自己的 Context，首页关闭后文件选择仍可继续。DocumentStore 只保留 Picker、URI 授权打开及关闭；日期、格式校验、命名、重名编号、目录创建、复制和失败清理由 C++ `HarmonySandbox` 负责。
 
 仓库中的 `third_party/markitdown` 是固定版本的上游源码，**不会把整个 Git 仓库装进应用**。`pack_python_hnp.sh` 仅把运行所需的 `markitdown/`、`huiwen_converter/`、Python 依赖及其原生 `.so` 放入 HNP 的 `lib/python3.14/site-packages/`，固定命令脚本放在 `share/huiwen/`；HNP 同时包含 Python 解释器。构建 HAP 时，`libhuiwen_native.so`、`libhuiwen_qt.so` 和最小 Qt 运行库进入 HAP，生成的 `huiwen_python.hnp` 也随 HAP 分发。ArkTS 不能直接导入 HNP 内的 Python 函数，必须经应用自己的 NAPI 桥接调用。
 
@@ -114,6 +117,14 @@ HuiWenMCP/
 | `converter/huiwen_converter/_markitdown_adapter.py` | 内部 `pdf_to_markdown()` | 唯一直接导入 MarkItDown 的文件；不作为业务 API。 |
 | `entry/src/main/ets/services/ConversionService.ets` | `pdfToMd(inputPath, outputPath): Promise<string>` | ArkTS 页面调用；只转发到 NAPI，成功返回 MD 路径。 |
 | `entry/src/main/cpp/napi_bridge.cpp` | `convertPdf(inputPath, outputPath)` | 原生边界；异步启动 HNP 中的固定命令，不接受任意 Shell 命令。 |
+
+## 沙箱平台分层
+
+- `SandboxService` 是 Qt 界面的统一入口；`Q_OS_OPENHARMONY` 分支仅引用鸿蒙桥接，桌面头文件及原有逻辑位于独立的 `#else` 分支。
+- `platform/harmony/harmony_sandbox.h/.cpp` 和 `harmony_sandbox_napi.cpp` 以 `harmony_` 命名，只在 `CMAKE_SYSTEM_NAME=OHOS` 时加入原生库；源码由 `Q_OS_OPENHARMONY` 宏保护，不向 Windows/macOS 引入鸿蒙 SDK 类型。后续平台实现应放入各自目录，并通过平台条件选择，避免把规则回填到 ArkTS 或混入通用界面。
+- `harmonyImportDocument(filesDir, name, fd, kind, forConversion)` 返回 `Promise<HarmonySandboxDocument>`；NAPI 同步复制授权 fd，并设置关闭时不继承到子进程，在工作线程使用独立偏移读取、排他创建目标文件、分块复制。调用方的 fd 生命周期及读偏移不受复制影响；成功、失败或排队失败均释放原生 fd，复制失败仅移除本次创建的输入文件。
+- `harmonyValidateOutput(filesDir, path)` 同步校验输出目录归属、规范路径、符号链接实际位置及非空可读 MD。ArkTS 拿到校验后的路径，再使用既有 `fileUri` 和 `openLink` 打开系统文件管理器；旧 `outputs/md/` 与日期目录都兼容。
+- 日期目录与重名分配使用同一份 C++ 规则；并发导入通过路径分配锁与排他文件创建避免覆盖，原 PDF/MD 预览入口继续复用同一接口。系统选取取消时不创建沙箱文件。
 
 ## 沙箱文件路径
 
