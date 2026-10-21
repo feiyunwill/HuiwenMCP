@@ -20,6 +20,11 @@ set(workspace_root "${CMAKE_CURRENT_SOURCE_DIR}/../../../../qt_app")
 # ArkTS 调用的 C++ NAPI 桥接库，由工程构建生成 .so。
 add_library(huiwen_native SHARED napi_bridge.cpp python_runner.cpp
             "${workspace_root}/src/platform/harmony/qt_bridge.cpp")
+if(CMAKE_SYSTEM_NAME STREQUAL "OHOS")
+    target_sources(huiwen_native PRIVATE
+        "${workspace_root}/src/platform/harmony/harmony_sandbox.cpp"
+        "${workspace_root}/src/platform/harmony/harmony_sandbox_napi.cpp")
+endif()
 target_include_directories(huiwen_native PRIVATE "${workspace_root}/src")
 target_link_libraries(huiwen_native PRIVATE ace_napi.z.so hilog_ndk.z.so Qt5::Core)
 add_subdirectory("${workspace_root}" "${CMAKE_CURRENT_BINARY_DIR}/qt_app")

@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+void InitHarmonySandbox(napi_env env, napi_value exports);
+
 // 返回固定结果，供首页检查原生模块是否可调用。
 static napi_value Ping(napi_env env, napi_callback_info info)
 {
@@ -153,6 +155,7 @@ static napi_value Init(napi_env env, napi_value exports)
     napi_define_properties(env, exports, sizeof(descriptors) / sizeof(descriptors[0]), descriptors);
     // 工作区桥接使用同一模块，Qt 与 ArkTS 共享回调和 PythonRunner。
     InitQtBridge(env, exports);
+    InitHarmonySandbox(env, exports);
     return exports;
 }
 

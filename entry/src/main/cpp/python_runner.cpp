@@ -4,6 +4,8 @@
  */
 #include "python_runner.h"
 #include "hilog/log.h"
+#include <QJsonDocument>
+#include <QJsonObject>
 
 #include <array>
 #include <cerrno>
@@ -22,6 +24,33 @@ namespace
 {
 constexpr char kBundleName[] = "cn.com.HuiWenMCP";
 constexpr char kPackageDir[] = "huiwen_python.org/huiwen_python_1.0.0";
+constexpr char kResultPrefix[] = "HUIWEN_CONVERT_RESULT ";
+
+void CaptureConversionResult(const char *data, size_t size, std::string &pending, bool &skipLine,
+                             std::string &result)
+{
+    for (size_t index = 0; index < size; ++index)
+    {
+        const char character = data[index];
+        if (character == '\n')
+        {
+            if (!skipLine && pending.size() >= sizeof(kResultPrefix) - 1)
+                result = std::move(pending);
+            pending.clear();
+            skipLine = false;
+        }
+        else if (!skipLine)
+        {
+            if (pending.size() < sizeof(kResultPrefix) - 1 && character != kResultPrefix[pending.size()])
+            {
+                pending.clear();
+                skipLine = true;
+            }
+            else
+                pending += character;
+        }
+    }
+}
 
 void LogPythonLine(const std::string &line, LogLevel &level)
 {
@@ -75,7 +104,7 @@ std::string FindPythonRoot()
     throw std::runtime_error("未找到私有 HNP 解释器；请确认 huiwen_python.hnp 已随 HAP 安装。HNP_PRIVATE_HOME=" + base);
 }
 std::string RunPythonScript(const char *scriptName, const std::vector<std::string> &paths, const char *successMarker,
-                            const char *action)
+                            const char *action, int *exitCode = nullptr)
 {
     const std::string root = FindPythonRoot();
     const std::string python = root + "/bin/python3";
@@ -125,6 +154,9 @@ std::string RunPythonScript(const char *scriptName, const std::vector<std::strin
 
     std::string output;
     std::string pendingLog;
+    std::string pendingResult;
+    std::string conversionResult;
+    bool skipResultLine = false;
     LogLevel logLevel = LOG_INFO;
     char buffer[512];
     std::string readError;
@@ -134,6 +166,9 @@ std::string RunPythonScript(const char *scriptName, const std::vector<std::strin
         if (length > 0)
         {
             output.append(buffer, static_cast<size_t>(length));
+            if (exitCode != nullptr)
+                CaptureConversionResult(buffer, static_cast<size_t>(length), pendingResult, skipResultLine,
+                                        conversionResult);
             pendingLog.append(buffer, static_cast<size_t>(length));
             ForwardPythonOutput(pendingLog, logLevel, false);
             if (output.size() > 4096)
@@ -152,6 +187,8 @@ std::string RunPythonScript(const char *scriptName, const std::vector<std::strin
         }
     }
     close(outputPipe[0]);
+    if (exitCode != nullptr)
+        CaptureConversionResult("\n", 1, pendingResult, skipResultLine, conversionResult);
     ForwardPythonOutput(pendingLog, logLevel, true);
     int childStatus = 0;
     while (waitpid(child, &childStatus, 0) == -1)
@@ -175,6 +212,11 @@ std::string RunPythonScript(const char *scriptName, const std::vector<std::strin
     OH_LOG_Print(LOG_APP, WEXITSTATUS(childStatus) == 0 ? LOG_INFO : LOG_ERROR, 0x3F00, "HuiwenPython",
                  "PYTHON_EXIT code=%{public}d marker=%{public}d", WEXITSTATUS(childStatus),
                  output.find(successMarker) != std::string::npos);
+    if (exitCode != nullptr)
+    {
+        *exitCode = WEXITSTATUS(childStatus);
+        return conversionResult;
+    }
     if (WEXITSTATUS(childStatus) != 0)
     {
         throw std::runtime_error(std::string(action) + "退出码 " + std::to_string(WEXITSTATUS(childStatus)) + ": " +
@@ -193,16 +235,38 @@ std::string RunPythonSmoke()
     return RunPythonScript("python_smoke.py", {}, "HUIWEN_PYTHON_OK", "Python 自检");
 }
 
-std::string RunPdfConversion(const std::string &inputPath, const std::string &outputPath)
+PdfConversionResult RunPdfConversionResult(const std::string &inputPath, const std::string &outputPath)
 {
     if (inputPath.empty() || outputPath.empty())
+        return {1001, "转化失败：文件路径不正确，请重新选择 PDF。", {}};
+    int exitCode = -1;
+    const std::string output = RunPythonScript("convert_pdf.py", {inputPath, outputPath},
+                                               "HUIWEN_CONVERT_OK", "PDF 转换", &exitCode);
+    if (output.compare(0, sizeof(kResultPrefix) - 1, kResultPrefix) != 0)
+        return {2001, "转化失败：转换进程未返回结果，请重新转化。", {}};
+    QJsonParseError parseError;
+    const auto document = QJsonDocument::fromJson(
+        QByteArray::fromStdString(output.substr(sizeof(kResultPrefix) - 1)), &parseError);
+    const auto result = document.object();
+    const auto code = result.value("code");
+    const auto message = result.value("message").toString();
+    const auto path = result.value("outputPath").toString();
+    if (parseError.error != QJsonParseError::NoError || !document.isObject() || !code.isDouble() ||
+        code.toDouble() != code.toInt(-1) || code.toInt(-1) < 0 || message.trimmed().isEmpty() ||
+        !result.value("outputPath").isString() || (code.toInt() == 0) != (exitCode == 0) ||
+        (code.toInt() == 0 ? path.toStdString() != outputPath : !path.isEmpty()))
+        return {2001, "转化失败：转换结果异常，请重新转化。", {}};
+    if (code.toInt() == 0 && access(outputPath.c_str(), R_OK) != 0)
+        return {2002, "转化失败：生成的 Markdown 无法读取，请重新转化。", {}};
+    return {code.toInt(), message.toStdString(), path.toStdString()};
+}
+
+std::string RunPdfConversion(const std::string &inputPath, const std::string &outputPath)
+{
+    const auto result = RunPdfConversionResult(inputPath, outputPath);
+    if (result.code != 0)
     {
-        throw std::runtime_error("PDF 输入或 MD 输出路径为空");
+        throw std::runtime_error("[code=" + std::to_string(result.code) + "] " + result.message);
     }
-    RunPythonScript("convert_pdf.py", {inputPath, outputPath}, "HUIWEN_CONVERT_OK", "PDF 转换");
-    if (access(outputPath.c_str(), R_OK) != 0)
-    {
-        throw std::runtime_error("转换完成后未找到 MD 文件: " + outputPath);
-    }
-    return outputPath;
+    return result.outputPath;
 }

@@ -6,5 +6,5 @@ class ConvertButton : public QPushButton
 {
   public:
     explicit ConvertButton(QWidget *parent = nullptr);
-    void setState(bool hasDocument, bool busy);
+    void setState(bool hasDocument, bool busy, bool retry = false);
 };

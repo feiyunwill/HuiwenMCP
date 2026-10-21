@@ -1,4 +1,4 @@
-/* 文件选择和输出位置的统一入口；鸿蒙复用 DocumentStore 的沙箱规则。 */
+/* 文件选择和输出位置的统一入口；鸿蒙规则由 harmony_sandbox 实现。 */
 #pragma once
 #include "DocumentItem.h"
 #include <QObject>

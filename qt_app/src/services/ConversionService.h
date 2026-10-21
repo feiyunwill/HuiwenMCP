@@ -3,6 +3,13 @@
 #include <QFutureWatcher>
 #include <QObject>
 
+struct ConversionResult
+{
+    int code;
+    QString message;
+    QString outputPath;
+};
+
 class ConversionService : public QObject
 {
     Q_OBJECT
@@ -10,9 +17,9 @@ class ConversionService : public QObject
     explicit ConversionService(QObject *parent = nullptr);
     void convertPdfToMd(const QString &inputPath, const QString &outputPath);
   signals:
-    void succeeded(const QString &path);
-    void failed(const QString &message);
+    void succeeded(const QString &path, const QString &message);
+    void failed(int code, const QString &message);
 
   private:
-    QFutureWatcher<QPair<QString, QString>> watcher_;
+    QFutureWatcher<ConversionResult> watcher_;
 };
