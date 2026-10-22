@@ -13,6 +13,11 @@
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
+    // CEF 网络服务初始化及网络状态查询使用；页面仍遵守离线资源和导航限制。
+    "requestPermissions": [
+      { "name": "ohos.permission.INTERNET" },
+      { "name": "ohos.permission.GET_NETWORK_INFO" }
+    ],
     // 随 entry HAP 安装的私有 Python 运行时，仅供本应用调用。
     "hnpPackages": [
       {

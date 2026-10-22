@@ -7,6 +7,7 @@ import hilog from '@ohos.hilog';
 import qpa from 'libplugins_platforms_qopenharmony.so';
 import nativeBridge from 'libhuiwen_native.so';
 import { DocumentKind, pickDocumentToSandbox } from '../utils/DocumentStore';
+import { CefWorkspaceProxy } from '../utils/CefPlatform';
 
 interface WorkspaceEvent {
   action: string;
@@ -27,6 +28,7 @@ export default class QtWorkspaceAbility extends UIAbility {
   private launchParams: string = '';
   private pickerBusy: boolean = false;
   private workspaceReady: boolean = false;
+  private cefProxy: CefWorkspaceProxy | undefined = undefined;
 
   // QPA 调用本方法后写入 idName，并把存储传给固定的 pages/Index 承载页。
   newLocalStorage(): LocalStorage {
@@ -35,6 +37,7 @@ export default class QtWorkspaceAbility extends UIAbility {
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
     try {
+      this.cefProxy = new CefWorkspaceProxy(this.context, windowStage);
       nativeBridge.registerWorkspace((json: string) => {
         this.handleWorkspaceEvent(json).catch((error: Error) => {
           hilog.error(0xFF00, 'QtWorkspace', 'HUIWEN_QT_EVENT_FAILED: %{public}s', error.message);
@@ -117,6 +120,8 @@ export default class QtWorkspaceAbility extends UIAbility {
 
   onDestroy(): void {
     nativeBridge.clearWorkspace();
+    this.cefProxy?.dispose();
+    this.cefProxy = undefined;
   }
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {

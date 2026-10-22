@@ -81,10 +81,15 @@ async function main() {
     throw new Error('Markdown 浏览器资源仍引用外部模块');
   }
   assets.set('THIRD_PARTY_LICENSES.txt', readFileSync(path.join(directory, 'licenses/THIRD_PARTY_LICENSES.txt')));
+  const page = readFileSync(path.join(directory, 'preview.html'), 'utf8')
+    .replace('/* HUIWEN_PREVIEW_STYLE */', () => Buffer.from(assets.get('huiwen-markdown.css')).toString('utf8'))
+    .replace('/* HUIWEN_PREVIEW_SCRIPT */', () => Buffer.from(assets.get('huiwen-markdown.js')).toString('utf8')
+      .replace(/<\/script/gi, '<\\/script'));
+  assets.set('preview.html', Buffer.from(page));
   const metadata = {
     format: 'iife', global: 'HuiwenMarkdown', target: 'chrome114',
     lock_sha256: sha256(readFileSync(path.join(directory, 'package-lock.json'))),
-    inputs: Object.fromEntries(Object.keys(result.metafile.inputs).sort().map((name) => [
+    inputs: Object.fromEntries([...Object.keys(result.metafile.inputs), 'preview.html'].sort().map((name) => [
       name, sha256(readFileSync(path.resolve(directory, name)))
     ])),
     files: Object.fromEntries([...assets].map(([name, contents]) => [name, {

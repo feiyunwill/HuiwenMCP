@@ -22,6 +22,11 @@
   },
   "modules": [
     {
+      "name": "web_engine",
+      "srcPath": "./.native-tools/cef-web-engine",
+      "targets": [{ "name": "default" }]
+    },
+    {
       "name": "entry",
       "srcPath": "./entry",
       "targets": [

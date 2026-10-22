@@ -128,6 +128,9 @@ void ConversionWindow::placeConvertButton()
     button_->move(center.x() - button_->width() / 2,
                   splitter_->mapTo(this, QPoint(0, splitter_->height())).y() - button_->height() - 72);
     buttonBackdrop_->setGeometry(button_->geometry().adjusted(-2, -32, 2, 32));
+    // CEF 是原生子节点，预览区域避开悬浮按钮，避免盖住 Qt 绘制的按钮和遮罩。
+    const int resultBottom = result_->mapTo(this, QPoint(0, result_->height())).y();
+    result_->setPreviewBottomInset(qMax(0, resultBottom - buttonBackdrop_->geometry().top()));
     buttonBackdrop_->raise();
     button_->raise();
 }

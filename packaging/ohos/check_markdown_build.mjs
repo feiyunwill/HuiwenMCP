@@ -26,7 +26,7 @@ try {
   const source = path.join(sandbox, 'third_party/markdown');
   mkdirSync(source, { recursive: true });
   mkdirSync(path.join(sandbox, 'packaging/ohos'), { recursive: true });
-  for (const name of ['package.json', 'package-lock.json', 'library.js', 'library.css', 'licenses']) {
+  for (const name of ['package.json', 'package-lock.json', 'library.js', 'library.css', 'preview.html', 'licenses']) {
     cpSync(path.join(root, 'third_party/markdown', name), path.join(source, name), { recursive: true });
   }
   cpSync(path.join(root, 'packaging/ohos/build_markdown.mjs'), path.join(sandbox, 'packaging/ohos/build_markdown.mjs'));
@@ -42,6 +42,16 @@ try {
   assert.equal(typeof api.markdown, 'function');
   assert.ok(api.parser.parse('# 标题').toString().includes('ATXHeading1'));
   assert.ok(api.parser.configure(api.GFM).parse('| a |\n| --- |\n| b |').toString().includes('Table'));
+  const html = api.renderMarkdown('# 标题\n\n**粗体**\n\n| a |\n| --- |\n| b |\n\n<script>alert(1)</script>');
+  assert.match(html, /<h1>标题<\/h1>/);
+  assert.match(html, /<strong>粗体<\/strong>/);
+  assert.match(html, /<table>/);
+  assert.ok(!html.includes('<script>'));
+  assert.ok(!api.renderMarkdown('[危险链接](javascript:alert(1))').includes('href="javascript:'));
+  const page = readOutput('preview.html').toString();
+  assert.match(page, /Content-Security-Policy/);
+  assert.ok(!page.includes('HUIWEN_PREVIEW_SCRIPT'));
+  assert.match(page, /id="markdown-body"/);
   assert.match(readOutput('huiwen-markdown.css').toString(), /\.cm-editor/);
   const metadata = JSON.parse(readOutput('build.json'));
   for (const [name, expected] of Object.entries(metadata.files)) {
@@ -93,7 +103,9 @@ try {
   const task = tasks.find((item) => item.name === 'PrepareMarkdownResources');
   assert.ok(task);
   assert.ok(task.dependencies.includes('default@PreBuild'));
-  for (const name of ['default@CompileResource', 'default@PackageHap']) assert.ok(task.postDependencies.includes(name));
+  for (const name of ['default@ConfigureCmake', 'default@CompileResource', 'default@PackageHap']) {
+    assert.ok(task.postDependencies.includes(name));
+  }
   assert.throws(() => task.run({ modulePath: path.join(sandbox, 'entry') }), (error) => error === injected);
   assert.equal(calls[0][0], process.execPath);
   assert.equal(calls[0][1][0], path.join(sandbox, 'packaging/ohos/build_markdown.mjs'));

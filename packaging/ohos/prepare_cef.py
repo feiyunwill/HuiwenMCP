@@ -133,6 +133,8 @@ def prepare(source):
                 "adapter_c": "Copied stripped prebuilt library; not rebuilt from migrated sources"}
     (SDK / "files.json").write_text(json.dumps(files, ensure_ascii=False, indent=2) + "\n")
     (CEF / "environment.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
+    from prepare_cef_preview import prepare as prepare_preview
+    prepare_preview()
     print(f"[HUIWEN_CEF] 迁入 {len(files)} 个文件；SDK：{SDK}；运行库：{LIBS}")
 
 

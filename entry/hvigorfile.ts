@@ -37,10 +37,19 @@ const prepareMarkdownResourcesPlugin = {
     node.registerTask({
       name: 'PrepareMarkdownResources',
       dependencies: ['default@PreBuild'],
-      postDependencies: ['default@CompileResource', 'default@PackageHap'],
+      postDependencies: ['default@ConfigureCmake', 'default@CompileResource', 'default@PackageHap'],
       run: (context: any) => {
         const projectRoot = path.resolve(context.modulePath.toString(), '..');
         execFileSync(process.execPath, [path.join(projectRoot, 'packaging/ohos/build_markdown.mjs')], {
+          cwd: projectRoot,
+          stdio: 'inherit'
+        });
+        const propertiesFile = path.join(projectRoot, 'local.properties');
+        const properties = fs.existsSync(propertiesFile) ? fs.readFileSync(propertiesFile, 'utf8') : '';
+        const pythonSetting =
+          process.env.HOST_PYTHON ?? properties.match(/^\s*python\.host\.path\s*=\s*(.+)$/m)?.[1].trim() ?? 'python3';
+        const python = pythonSetting.includes(path.sep) ? path.resolve(projectRoot, pythonSetting) : pythonSetting;
+        execFileSync(python, [path.join(projectRoot, 'packaging/ohos/prepare_cef_preview.py')], {
           cwd: projectRoot,
           stdio: 'inherit'
         });

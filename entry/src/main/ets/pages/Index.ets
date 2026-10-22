@@ -1,4 +1,8 @@
 // QPA 固定加载 pages/Index；这里只承载 Qt 节点，不放首页和窗口关闭监听。
+import CustomChildProcess from '../process/CustomChildProcess';
+
+// 保留 CEF 动态启动的子进程模块，与适配层固定路径一致。
+CustomChildProcess.keepModule();
 const storage = LocalStorage.getShared();
 
 @Entry(storage)

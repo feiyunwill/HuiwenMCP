@@ -6,6 +6,9 @@
   "author": "",
   "license": "",
   "dependencies": {
+    "reflect-metadata": "0.1.13",
+    "web_engine": "file:../.native-tools/cef-web-engine",
+    "libadapter_c.so": "file:./src/main/cpp/types/libadapter_c",
     // ArkTS 首页调用的 C++ NAPI 模块。
     "libhuiwen_native.so": "file:./src/main/cpp/types/libhuiwen_native",
     // Qt 启动桥的类型声明，运行库由 CMake 从本机 SDK 复制。

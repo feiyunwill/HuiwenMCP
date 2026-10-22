@@ -32,14 +32,34 @@ python3 packaging/ohos/prepare_cef.py --source /已有工程/OpenQtCef
 SDK 文件及大体积运行库遵循现有本地依赖策略，不进入 Git；准备脚本、说明和
 `environment.json` 进入 Git。清单不保存本机绝对来源路径。
 
+## 汇文 Markdown 预览接入
+
+SDK 迁入后会调用 `packaging/ohos/prepare_cef_preview.py`。已有 SDK 也可单独运行该脚本，
+再由 DevEco 同步依赖。脚本生成 `.native-tools/cef-web-engine/` HAR 副本，固定其 JS 依赖，
+清除来源模块的权限声明，并将 CEF 核心数据同步到 `entry/src/main/resources/resfile/`。
+应用在 `entry/src/main/module.json5` 中单独声明 CEF 使用的 `INTERNET` 和 `GET_NETWORK_INFO`。
+SDK 原文件和逐文件来源清单保持不变；生成副本及核心数据被 Git 忽略。
+
+`QtAbilityStage` 注册平台服务，`QtWorkspaceAbility` 注册窗口代理；使用汇文自己的代理，
+不继承来源的 `WebQtAbility`，因此不调用其无边框设置或通用权限申请。
+原生子进程按通达的库名约定加载 `libcefsimple.so`，调用其导出的 `CefMain`。
+该入口只调用 `CefExecuteProcess`，不创建 Qt 应用或再次启动浏览器主进程。
+旧版 ArkTS 子进程路径仍保留 `ets/process/CustomChildProcess.ets` 固定入口。
+右侧点击预览后，Qt 才启动 CEF 消息线程、创建原生子视图；关闭时先释放浏览器再退出消息循环。
+
+CMake 导入现有 `libcef.so` 和 `libadapter_c.so`，编译公开 C++ 包装层及最小子进程入口库。
+`libcefsimple.so` 随原生构建更新并同步到 `entry/libs/arm64-v8a/`，由 Hvigor 收集进 HAP。
+包装层日志接到汇文 HiLog，不使用来源工程的日志目录；Qt 和 CEF 本体不重编。
+`HuiwenCEF` 日志记录子进程类型及退出码、浏览器创建、主页面加载和渲染进程退出状态。
+`PrepareMarkdownResources` 会在 CMake／资源编译前刷新页面和 CEF 资源。
+
 ## 当前边界
 
-- 尚未链接 CEF、添加 `web_engine` 模块依赖、修改 Ability 或启用 MD 窗口；
-  本次也没有添加 Run 任务或执行编译、HAP 打包和设备运行。
+- 已连接 CMake、`web_engine`、Ability、Run 资源准备和 MD 预览的源码链路；
+  尚未执行 C++ 编译、HAP 打包或设备运行，不将其视为运行验收通过。
 - 未迁入通达 OA/IM、登录、数据库、托盘业务，以及 Qt 运行库、宿主工具、
   `unstripped` 调试库、构建缓存、浏览器示例网页和测试资源。
-- 保留的适配源码仍有来源工程的行为：`WebQtAbility` 隐藏窗口装饰，日志实现使用
-  通达沙箱日志目录，HAR 声明了通用浏览器权限。实际接入前须按汇文场景调整。
+- 原始 SDK 仍保留来源工程的适配代码；汇文入口绕开无边框、权限申请和业务日志行为。
 - 已验证的动态依赖存在于迁入库或本机 ARM64 SDK；这不证明设备兼容或浏览器可运行。
 - 来源未提供独立的 Chromium 和厂商完整许可证材料。本次只保存能找到的声明；
   分发前仍需从对应发布包补齐，不将该环境标记为许可证材料齐全。
