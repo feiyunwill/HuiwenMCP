@@ -95,17 +95,14 @@ export default class QtWorkspaceAbility extends UIAbility {
   }
 
   private async openOutputLocation(path: string): Promise<void> {
-    const outputDir = `${this.context.getApplicationContext().filesDir}/outputs/md/`;
-    if (!path.startsWith(outputDir) || path.includes('/../') || !path.endsWith('.md')) {
-      throw new Error('输出路径不属于本应用 Markdown 沙箱');
-    }
-    // 文件管理器按文件 URI 定位所在目录，不再用保存选择器导出副本。
-    const uri = fileUri.getUriFromPath(path);
+    const outputPath: string = nativeBridge.harmonyValidateOutput(
+      this.context.getApplicationContext().filesDir, path);
+    const uri: string = fileUri.getUriFromPath(outputPath);
     const options: OpenLinkOptions = {
       parameters: { fileUri: uri }
     };
-    hilog.info(0xFF00, 'QtWorkspace', 'HUIWEN_QT_OPEN_REQUEST: directory=%{public}s, uri=%{public}s',
-      outputDir, uri);
+    hilog.info(0xFF00, 'QtWorkspace', 'HUIWEN_QT_OPEN_REQUEST: file=%{public}s, uri=%{public}s',
+      outputPath, uri);
     try {
       await this.context.openLink('filemanager://openDirectory', options);
       // Promise 完成只表示拉起请求成功，目录定位效果仍需真机确认。

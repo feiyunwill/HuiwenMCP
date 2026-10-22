@@ -8,6 +8,14 @@
 #include <string>
 
 std::string RunPythonSmoke();
+struct PdfConversionResult
+{
+    int code;
+    std::string message;
+    std::string outputPath;
+};
+
+PdfConversionResult RunPdfConversionResult(const std::string &inputPath, const std::string &outputPath);
 // 调用 HNP 内置的 PDF 转换命令；成功返回可读取的 MD 输出路径。
 std::string RunPdfConversion(const std::string &inputPath, const std::string &outputPath);
 
