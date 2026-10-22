@@ -23,7 +23,7 @@
   "modules": [
     {
       "name": "web_engine",
-      "srcPath": "./.native-tools/cef-web-engine",
+      "srcPath": "./third_party/cef/web_engine",
       "targets": [{ "name": "default" }]
     },
     {

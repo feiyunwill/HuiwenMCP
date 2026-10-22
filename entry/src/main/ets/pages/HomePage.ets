@@ -110,7 +110,7 @@ struct HomePage {
     Row({ space: 24 }) {
       // 左侧暂用文字代替应用宣传图。
       Column({ space: 20 }) {
-        Text('汇文 MCP')
+        Text('汇文MCP')
           .fontSize(48)
           .fontWeight(FontWeight.Bold)
           .fontColor('#183153')

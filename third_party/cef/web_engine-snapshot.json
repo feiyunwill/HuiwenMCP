@@ -1,0 +1,591 @@
+{
+  "origin": "Tongda migrated CEF HAR with Huiwen manifest/type declarations",
+  "source_revision": "029b8db2c53d43cb378f93339f48531e4d0292e8",
+  "purpose": "Track lightweight OHPM sources; SDK libraries and core resources are in the fixed prebuilt package",
+  "files": {
+    ".gitignore": {
+      "sha256": "f09338a404f4b7248678bbc5328041a99e06528df65e761e75e03c4aa231f906",
+      "lines": 5
+    },
+    "BuildProfile.ets": {
+      "sha256": "89c1631cc980b9032f32ebeba3ce9c2f7d30427bd374331bf53478f8791754ec",
+      "lines": 17
+    },
+    "Index.ets": {
+      "sha256": "4a3a6a72b364655948b287b8fe4add12d9bc30f3a92fda119feb025b78552309",
+      "lines": 9
+    },
+    "build-profile.json5": {
+      "sha256": "4f03dc35579a7323503ab9420c107c5e5a355f6f08fd23d457288703b9d85a9e",
+      "lines": 28
+    },
+    "childProcess.ets": {
+      "sha256": "3291e537d3c1a8161b5571a7a591131776ca9284de8e3eef2f94e27763499c4b",
+      "lines": 1
+    },
+    "consumer-rules.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines": 0
+    },
+    "hvigorfile.ts": {
+      "sha256": "43c1a7c94d40249bcb21cd82de37b998785adc1b1119230b7bfc1b421d1a2538",
+      "lines": 6
+    },
+    "obfuscation-rules.txt": {
+      "sha256": "a7f332fdede7f2ffbf493dbe48272699278f7f65cbf874918de686ed329ed9a5",
+      "lines": 24
+    },
+    "oh-package-lock.json5": {
+      "sha256": "915bac83ee41ae8fd2947a10039a805e7ea24e45e7066ca2ef298aa1c1f7dea7",
+      "lines": 44
+    },
+    "oh-package.json5": {
+      "sha256": "f38275c2b51fd6f72d4f034d3dcb8b428c6e7fc64f34209601b08b1c74f0c988",
+      "lines": 12
+    },
+    "src/main/cpp/types/libadapter/index.d.ts": {
+      "sha256": "2a622895f52f9cdb0abfd6eaa5bb0940d07b527899f95aa174275aa95edb9f0f",
+      "lines": 7
+    },
+    "src/main/cpp/types/libadapter/oh-package.json5": {
+      "sha256": "28ebc057f4c1204c611ea2ecb986537c7ed3eff3a521188056b765a3b7e3ac99",
+      "lines": 6
+    },
+    "src/main/cpp/types/libadapter_c/index.d.ts": {
+      "sha256": "f26e9f6c30821aef4f96de5075944986a9ea820462800c479e2c0a492d380eec",
+      "lines": 7
+    },
+    "src/main/cpp/types/libadapter_c/oh-package.json5": {
+      "sha256": "cc56582c7d6eca93be3bc0f70c3729c958335c70061a59ac105f95116c1c15fb",
+      "lines": 5
+    },
+    "src/main/ets/ability/WebAbility.ets": {
+      "sha256": "1ac944afe9ac18d3826aea3cdbc1a8bf800c6228abc539cfa033c22e8ed5c78e",
+      "lines": 323
+    },
+    "src/main/ets/ability/WebBaseAbility.ets": {
+      "sha256": "7630bcc780d2eb97882e2358b18a87b769b2a29056a5fbef5e411d4a303242e5",
+      "lines": 163
+    },
+    "src/main/ets/ability/WebBaseExtensionAbility.ets": {
+      "sha256": "4dab2db9906b2adefae667b6456f7cb8956695f16052fc517eeee9933274bd23",
+      "lines": 126
+    },
+    "src/main/ets/ability/WebEmbeddedAbility.ets": {
+      "sha256": "f11575942ad93e90ab628743acb3909d47388e930840c107b71378d02ad786c3",
+      "lines": 106
+    },
+    "src/main/ets/ability/WebQtAbility.ets": {
+      "sha256": "693d3c11420cf2d57ff834f3cc6e0e3cc2dea7060116115b73ae4e1e1768a913",
+      "lines": 176
+    },
+    "src/main/ets/adapter/AccessibilityAdapter.ets": {
+      "sha256": "6fcc8abf8d4d2909028ce666ab8d7b730c909de8dfbc4dcd8479324f4673d42a",
+      "lines": 23
+    },
+    "src/main/ets/adapter/AppLifecycleAdapter.ets": {
+      "sha256": "1c26618d9321a14c39751cda9f20ea0ebf40fab9444c9634d4616f9d7dd59028",
+      "lines": 48
+    },
+    "src/main/ets/adapter/AppWindowAdapter.ets": {
+      "sha256": "65688145f232ccd62fec3a8a97036e4c983d8d40f92a3414ad256219737508b2",
+      "lines": 467
+    },
+    "src/main/ets/adapter/BatteryAdapter.ets": {
+      "sha256": "e56b0cb03f6a7cda003d9f40f956659523daa2298d676de15f69292318853078",
+      "lines": 122
+    },
+    "src/main/ets/adapter/BluetoothAdapter.ets": {
+      "sha256": "ce56825468cfe837978f1388832be03dae3b037c75632a7978ca058778cd8fe7",
+      "lines": 280
+    },
+    "src/main/ets/adapter/BluetoothLowEnergyAdapter.ets": {
+      "sha256": "c1ad1022377425a06103acb7f0ec80830c035718abba197ddbdefb00b63077fc",
+      "lines": 501
+    },
+    "src/main/ets/adapter/BrowserPolicyAdapter.ets": {
+      "sha256": "eea268b425691ecdb0b29c95672c1fa0cbaf460b7296de611bd5d7fe8cbc01a1",
+      "lines": 30
+    },
+    "src/main/ets/adapter/CertManagerAdapter.ets": {
+      "sha256": "e86e779735c21a95fb828132c986cd2bed5f09e6e6bb71c314325fdcc1326579",
+      "lines": 211
+    },
+    "src/main/ets/adapter/ContextAdapter.ets": {
+      "sha256": "3fce83cc86b2289b6f92a87ff2572fd9f00a51ee1ee41a0337cb0cdcddbb5496",
+      "lines": 73
+    },
+    "src/main/ets/adapter/ContextPathAdapter.ets": {
+      "sha256": "d619f52b0abc25b8cf7c13a999868057bfa0aa52a77de5da8daac743761c0552",
+      "lines": 95
+    },
+    "src/main/ets/adapter/CursorAdapter.ets": {
+      "sha256": "a1b02a0d9951e4800518c1ea0c8c629d7395a91621c43b0d3bd1ac25fafef468",
+      "lines": 99
+    },
+    "src/main/ets/adapter/DefaultApplicationAdapter.ets": {
+      "sha256": "c18736d792f5e2b94a1f569c5eef2546f8e04ce7b42f7d5246cc918953374995",
+      "lines": 44
+    },
+    "src/main/ets/adapter/DeviceAdapter.ets": {
+      "sha256": "ad7db4c9c2d46284dafeef423e380cc2a7ac2d4fc690c32dab0317abf4a3835c",
+      "lines": 189
+    },
+    "src/main/ets/adapter/DeviceInfoAdapter.ets": {
+      "sha256": "feee6fab5eb9734d0db2ffd2e30ceb9c1f65309d04512ab0ec6e18d659e380d0",
+      "lines": 131
+    },
+    "src/main/ets/adapter/DeviceUserAuthAdapter.ets": {
+      "sha256": "a18675a00750c43d41121dfd68c3573d4a270f8298a164e5d9e6eb04d628c79f",
+      "lines": 114
+    },
+    "src/main/ets/adapter/DisplayAdapter.ets": {
+      "sha256": "0c6619a0d0b882b6ef548f47042bf8b0eb9aefbe9544b702f125f2bbdfba6714",
+      "lines": 269
+    },
+    "src/main/ets/adapter/DragDropAdapter.ets": {
+      "sha256": "d3bed93a9facf1b06f7216213ba1ee3ba5c34704945b190053624578032d7d2b",
+      "lines": 171
+    },
+    "src/main/ets/adapter/ExternalProtocolAdapter.ets": {
+      "sha256": "68cdb856e890da3e4a2997139e2fa722b3cefdcaa98543f8f274341b8f4db7cc",
+      "lines": 31
+    },
+    "src/main/ets/adapter/FileManagerAdapter.ets": {
+      "sha256": "b10218289a1c7f3887395ffdb8e3d60abc8a75280732f9a5ab7929f583081859",
+      "lines": 65
+    },
+    "src/main/ets/adapter/FilePickerAdapter.ets": {
+      "sha256": "fcf729dda48f2f5e9f996afa5a9acf41db3c30bb22284b16764e0ad115d31b65",
+      "lines": 207
+    },
+    "src/main/ets/adapter/FontAdapter.ets": {
+      "sha256": "17bb8ea23d73d9b4f1722399015d2477b921a39b4ec360fda38e3e9feb234edc",
+      "lines": 52
+    },
+    "src/main/ets/adapter/GeolocationAdapter.ets": {
+      "sha256": "4fb300a7523e98024bab77aba21e18a806689473c031ca5814a077c7b1b539cf",
+      "lines": 46
+    },
+    "src/main/ets/adapter/I18nAdapter.ets": {
+      "sha256": "f2cfed26e39a391dc038004295eba36ce4170df252ec2eb4e0edb9e9621ed156",
+      "lines": 64
+    },
+    "src/main/ets/adapter/IMFAdapter.ets": {
+      "sha256": "f54c1a29119a48e2ef5176743c96b1a2df016e9962c533f58d9f7a3af6c623aa",
+      "lines": 169
+    },
+    "src/main/ets/adapter/MMIInputDeviceAdapter.ets": {
+      "sha256": "2279bbe233828c32eb453776332797bb0c35e0816c0c0df2d41ff5920fe270f0",
+      "lines": 130
+    },
+    "src/main/ets/adapter/MediaAdapter.ets": {
+      "sha256": "868f9f4da80df502f7caa7d443bb008102cc9707802c0685c3a33da70c3caaf1",
+      "lines": 61
+    },
+    "src/main/ets/adapter/MimeTypeAdapter.ets": {
+      "sha256": "a9f56140b6bee9b900dc0f84459723e5633fd469be9d28d3acd98ae79729edf8",
+      "lines": 52
+    },
+    "src/main/ets/adapter/MultiInputAdapter.ets": {
+      "sha256": "40b721526d8fe351b9df9b78311dcabca4c5751ff8b2f1a0f5daf44e73d228a4",
+      "lines": 50
+    },
+    "src/main/ets/adapter/NativeThemeAdapter.ets": {
+      "sha256": "72fbab272610a16e6eda5cf795b6d7ee299e2ceb3fbc997708c3d5eaae7374bf",
+      "lines": 74
+    },
+    "src/main/ets/adapter/NetConnectionAdapter.ets": {
+      "sha256": "51263bf760c65373e404314aa3348af0e071f2b6368a205f106649b0932893ce",
+      "lines": 43
+    },
+    "src/main/ets/adapter/NotificationAdapter.ets": {
+      "sha256": "d378fae05481e4c30c122694ad5c8a3c98fee8060e02141f9dde24ca97579217",
+      "lines": 291
+    },
+    "src/main/ets/adapter/OcrAdapter.ets": {
+      "sha256": "3de2b55d1ea6b5061ab2a3d86645d6d90daac9a020b3ed0f8a20a22c54112a06",
+      "lines": 77
+    },
+    "src/main/ets/adapter/PermissionManagerAdapter.ets": {
+      "sha256": "f9d26b7b6e07ecb2a16539188b7fb81958589d8c888a91fa42cb1a29e178018a",
+      "lines": 326
+    },
+    "src/main/ets/adapter/PowerMonitorAdapter.ets": {
+      "sha256": "25a68e7126c3ba596baf52a8340505a3351076c1656d445d74815c969b92441f",
+      "lines": 76
+    },
+    "src/main/ets/adapter/PrintAdapter.ets": {
+      "sha256": "ee042ee47d25611275a9953b9547a73035fe820b58aa588887aa115c288fd071",
+      "lines": 127
+    },
+    "src/main/ets/adapter/ProcessAdapter.ets": {
+      "sha256": "7cacdb5cb762b9c77182922313aec210d5d074343f68e5e85d1d0e11d5edbc5c",
+      "lines": 36
+    },
+    "src/main/ets/adapter/RunningLockAdapter.ets": {
+      "sha256": "d9734d6fff4e8e44993148ac0d0a9a4c6b63860b57ffac70f18b73932dd71642",
+      "lines": 51
+    },
+    "src/main/ets/adapter/ScreenlockMonitorAdapter.ets": {
+      "sha256": "8ce4e631d7beb1925a48c37b8f572c9a968c8b6bda2ea220e01b5f0c38f56a7d",
+      "lines": 69
+    },
+    "src/main/ets/adapter/ScreenshotAdapter.ets": {
+      "sha256": "7fda12371169d46b13c77d6523ed3f1deee739edf71b433199f2563c192edc33",
+      "lines": 32
+    },
+    "src/main/ets/adapter/ShapeDetectionAdapter.ets": {
+      "sha256": "0dfc7e4eb6cc3db49f2db16214e0697082dcedf87b41695e461a9e37d9a74d69",
+      "lines": 111
+    },
+    "src/main/ets/adapter/SpeechAdapter.ets": {
+      "sha256": "0c4a66585fa522b7b057a0bea0c923ffc1c9a34d0c9e17fee69b1b0acd3936fb",
+      "lines": 284
+    },
+    "src/main/ets/adapter/SubWindowAdapter.ets": {
+      "sha256": "effeab0726f243d1c9e07a72be53e9419378c0cbf027539e121dc2fe0e06b393",
+      "lines": 497
+    },
+    "src/main/ets/adapter/SystemFloatingWindowAdapter.ets": {
+      "sha256": "8047b09ac671666ecb11b35eb827cdcfd5197705ff151539ece3240912b1f60b",
+      "lines": 244
+    },
+    "src/main/ets/adapter/dialogAdapter.ets": {
+      "sha256": "1a3a324ff6440da30640aaef78ef7d36b6e3aefd8ae87f594ce33d162759e743",
+      "lines": 76
+    },
+    "src/main/ets/application/WebAbilityStage.ets": {
+      "sha256": "267af4ed155b50bd1a196ade67e432a064b8ca3302fe40f4fb0d32ad370057e4",
+      "lines": 56
+    },
+    "src/main/ets/common/AbilityManager.ets": {
+      "sha256": "fcc9cd74c11a830eef95fceeee447fda510a8d7d904fe14f92628cb9399ab0a8",
+      "lines": 118
+    },
+    "src/main/ets/common/AdapterModule.ets": {
+      "sha256": "527ffaee07a101e99552c0b26a884b2a82ca92df2108a1624a6f9b48a6c1780c",
+      "lines": 27
+    },
+    "src/main/ets/common/BaseAdapter.ets": {
+      "sha256": "56c40c84ab4e481bfb788effb2b76b86524ee211bf8e3a66dd2305c90cbdc948",
+      "lines": 27
+    },
+    "src/main/ets/common/CommonDependencyProvider.ets": {
+      "sha256": "2850d442a793c0f5edfd64d2ceff5a9818d09a9d6bf4638515e4c24c9b65afaf",
+      "lines": 41
+    },
+    "src/main/ets/common/CommonModule.ets": {
+      "sha256": "c202351f29dbe1e9f70feff97d77eda9879b68ad16b5029678c673af596924ee",
+      "lines": 15
+    },
+    "src/main/ets/common/Constants.ets": {
+      "sha256": "905a5735cceb3e74d1566115bc7ac7ee970d1da6618cac3952fca33a9444c4ab",
+      "lines": 42
+    },
+    "src/main/ets/common/DragParamManager.ets": {
+      "sha256": "ec3c79afc147c252c4c30fb38cf1f60228c2debdeb8a91e7a6cfb7c590947cd8",
+      "lines": 597
+    },
+    "src/main/ets/common/InjectModule.ets": {
+      "sha256": "e804c3e58a06418730212916001947f7e288952c588b85f52abee46116b21dad",
+      "lines": 58
+    },
+    "src/main/ets/common/LogDecorator.ts": {
+      "sha256": "5878b81076c93050af39d01e41e87e5d7e2ecf179cb544d6383c31f78a67622f",
+      "lines": 58
+    },
+    "src/main/ets/common/ModuleType.ts": {
+      "sha256": "3e8bc369115b40a31e3d0c73a9b6e028e05a4226bf72b9ba207a94eb167474a9",
+      "lines": 9
+    },
+    "src/main/ets/common/SystemFloatingWindowManager.ets": {
+      "sha256": "32eb3c635e85ede89e349122cb260a720b688dab31b867a4c9ade314aefa06a1",
+      "lines": 78
+    },
+    "src/main/ets/components/CustomDialog.ets": {
+      "sha256": "efdedfcfea6fe19681f00d5885a640e0422beb0033781727a36b8c230a220e3d",
+      "lines": 66
+    },
+    "src/main/ets/components/WebEmbeddedWindow.ets": {
+      "sha256": "fa1e213303bba236402c6421f32af5de08762f4a60cb94c7d0275c211755da38",
+      "lines": 152
+    },
+    "src/main/ets/components/WebSubWindow.ets": {
+      "sha256": "46a688a9d8f3ba99f29b56571c2b0af94399d1d81bc74f53b823340d46b19095",
+      "lines": 97
+    },
+    "src/main/ets/components/WebWindow.ets": {
+      "sha256": "9bf21ae2d526d6926bf16991bc19c8fc86946453419ca86849da6123022c9ade",
+      "lines": 275
+    },
+    "src/main/ets/components/WebWindowNode.ets": {
+      "sha256": "172a145393a143bbbedf00174d84848f8886cf9aabae0394be3600c982309b4c",
+      "lines": 199
+    },
+    "src/main/ets/interface/CommonInterface.ts": {
+      "sha256": "0f766cc4ec52e1fe91d9732341ec780929980071271214aaaf0ac213a64dcc0f",
+      "lines": 347
+    },
+    "src/main/ets/interface/Dependency.ets": {
+      "sha256": "2b2ad5defd12ee683b25c8d477df6ef32cbdb37c33e27f061695d2bb61c6628a",
+      "lines": 16
+    },
+    "src/main/ets/interface/WebProxy.ets": {
+      "sha256": "9e52015de5cfebb7f78275538b2bbbce2d6b966139a1aed081ffb72f01d19885",
+      "lines": 62
+    },
+    "src/main/ets/jsbindings/AccessibilityAdapterBind.ets": {
+      "sha256": "d1972b9a751530ec228d196d114a4d4d59b98466c715a17f9b0664bab0f91595",
+      "lines": 27
+    },
+    "src/main/ets/jsbindings/AppLifecycleAdapterBind.ets": {
+      "sha256": "be92a1cedd2cea87804a136ea1a09e409b17b4231f32ba85457cd5b63102e1d4",
+      "lines": 27
+    },
+    "src/main/ets/jsbindings/AppWindowAdapterBind.ets": {
+      "sha256": "89f0ae66d462bb0bcf43586781cf338aade1b679442619854774709fff9ac823",
+      "lines": 120
+    },
+    "src/main/ets/jsbindings/BatteryAdapterBind.ets": {
+      "sha256": "771b8b3434983df585907bbcf6eba154bc0ff8f249b890a4adc44858cacdd4e2",
+      "lines": 32
+    },
+    "src/main/ets/jsbindings/BluetoothAdapterBind.ets": {
+      "sha256": "164fc2160c40012b1ebddb5e0f909fc1d0109cb26c618ba5ef2b77a285bd9ec0",
+      "lines": 126
+    },
+    "src/main/ets/jsbindings/BluetoothLowEnergyAdapterBind.ets": {
+      "sha256": "cb74c961ac09fae6b38f0eca96ebd6d118251f9f2cf31c65d41f87b87300a0f1",
+      "lines": 133
+    },
+    "src/main/ets/jsbindings/BrowserPolicyAdapterBind.ets": {
+      "sha256": "399929111e0bc782e7cf219f85970c0fcf1a21cebd2dd1b97e53cd094342f0a8",
+      "lines": 21
+    },
+    "src/main/ets/jsbindings/CertManagerAdapterBind.ets": {
+      "sha256": "2cb0d21190d64dba3cd9deacb0070cb093317da866c55f76b73a72d846885853",
+      "lines": 51
+    },
+    "src/main/ets/jsbindings/ContextAdapterBind.ets": {
+      "sha256": "32c6ce35e122e6893af60c026cc147435af1a6a749aa6db6c53aa5a94de92d0b",
+      "lines": 22
+    },
+    "src/main/ets/jsbindings/ContextPathAdapterBind.ets": {
+      "sha256": "a30ac6efbd0e5e86641a15ea07779d2d6d8879d799dfc49f18fb646f32befae6",
+      "lines": 55
+    },
+    "src/main/ets/jsbindings/CursorAdapterBind.ets": {
+      "sha256": "ced6c1724fe80b36314be1559dcba6798b50e9d6c69c7080f085cd7ce8527718",
+      "lines": 32
+    },
+    "src/main/ets/jsbindings/DefaultApplicationAdapterBind.ets": {
+      "sha256": "483b5afd5c1ee583502d5a14c39a88ce694d677da4dfda0d9032e1f4051a52e0",
+      "lines": 26
+    },
+    "src/main/ets/jsbindings/DeviceAdapterBind.ets": {
+      "sha256": "999f26875c38c11c5e0772feaef0df0070591eb0978f713ba405ddcf530e0de9",
+      "lines": 72
+    },
+    "src/main/ets/jsbindings/DeviceInfoAdapterBind.ets": {
+      "sha256": "181db2a3b1d1c082fc261c275b2a8743ac0edc14e3b17ad94bc3e9691dc3528b",
+      "lines": 46
+    },
+    "src/main/ets/jsbindings/DeviceUserAuthAdapterBind.ets": {
+      "sha256": "6b1ab0e8dcca573f69f5c02ad5d90b37b1c825e8a684cf19a44fd03981853090",
+      "lines": 26
+    },
+    "src/main/ets/jsbindings/DisplayAdapterBind.ets": {
+      "sha256": "2e84f967c34c72f5c73f9c3f4b4582a9605aaded55476bcca65f9d8a2db545e1",
+      "lines": 42
+    },
+    "src/main/ets/jsbindings/DragDropAdapterBind.ets": {
+      "sha256": "91eade011375fe2e30455c5f0f60efbb14e18a1b92a92a568add55ec0958759c",
+      "lines": 22
+    },
+    "src/main/ets/jsbindings/ExternalProtocolAdapterBind.ets": {
+      "sha256": "007fe180b552347ffc16ba0937a819884f45dfbe86f9f5594315512b74e78729",
+      "lines": 21
+    },
+    "src/main/ets/jsbindings/FileManagerAdapterBind.ets": {
+      "sha256": "5cc645d2adc6ac450b10a3afecc8f275b9cb9af8269297fc264f3616ed0aa865",
+      "lines": 26
+    },
+    "src/main/ets/jsbindings/FilePickerAdapterBind.ets": {
+      "sha256": "b4040726784eb33a1089e905a5d206ad5f214027bc1d151ce4a7e91ea8e49f67",
+      "lines": 37
+    },
+    "src/main/ets/jsbindings/FontAdapterBind.ets": {
+      "sha256": "6cf9f94d1342cb3a2b5c2eda6f98ade0b6838005b376e1bcd16ed5267ccbf71f",
+      "lines": 31
+    },
+    "src/main/ets/jsbindings/GeolocationAdapterBind.ets": {
+      "sha256": "4b66063eee17aed4ea1840aa1a7e30d111dbc6f4c1cad219d9a2fcc7f75d3569",
+      "lines": 30
+    },
+    "src/main/ets/jsbindings/I18nAdapterBind.ets": {
+      "sha256": "0b540651d1b96edf3c21c4fcfdd64f147283c4dec6e92fd41de4c20d2300a5b5",
+      "lines": 36
+    },
+    "src/main/ets/jsbindings/IMFAdapterBind.ets": {
+      "sha256": "21f76cf7182192e152cd738e442f8925f64843db0895119a9e212128235fe575",
+      "lines": 51
+    },
+    "src/main/ets/jsbindings/JsBindingMethod.ets": {
+      "sha256": "e57089a89dc30bdf6ae5d57212e6d2934ecadf802a3ad5e21ac2750c9c9193c6",
+      "lines": 92
+    },
+    "src/main/ets/jsbindings/MMIInputDeviceAdapterBind.ets": {
+      "sha256": "8b094e4b551ce114ab27145b3e800e6e893e2ed84589607207dae306d6793889",
+      "lines": 37
+    },
+    "src/main/ets/jsbindings/MediaAdapterBind.ets": {
+      "sha256": "1f42a41149c43b07fac682f87f14d5350ddba18defbfd5801e7125e27142ae71",
+      "lines": 31
+    },
+    "src/main/ets/jsbindings/MimeTypeAdapterBind.ets": {
+      "sha256": "9a342b1de6df85bf8499b50a56087fe76dfc0e1d57b44816b4f2738b8c6b913c",
+      "lines": 26
+    },
+    "src/main/ets/jsbindings/NativeThemeAdapterBind.ets": {
+      "sha256": "2dd0c21db406a2b1fd75fddd9b6bc94b69a53e5a44181a9cc5f40d65201ba7f2",
+      "lines": 22
+    },
+    "src/main/ets/jsbindings/NetConnectionAdapterBind.ets": {
+      "sha256": "f0fda3870a628269eb5f12cbdd8e24cdffd573f165b8411657c61722cc664433",
+      "lines": 21
+    },
+    "src/main/ets/jsbindings/NotificationAdapterBind.ets": {
+      "sha256": "e05ca12b7e23f2a0d9cb4c1bee7b06cf774bd6a18b6d8bb5df326e3834467108",
+      "lines": 32
+    },
+    "src/main/ets/jsbindings/OcrAdapterBind.ets": {
+      "sha256": "f43efe48e3fe36f2d9117c4a64fd5653ad63517ad275d730f228bc1fcf02f9e3",
+      "lines": 22
+    },
+    "src/main/ets/jsbindings/PermissionManagerAdapterBind.ets": {
+      "sha256": "d6522369c3e4e3360cb3cfe66655660cca26033fc1e86615f1d584cb8eac3614",
+      "lines": 41
+    },
+    "src/main/ets/jsbindings/PowerMonitorAdapterBind.ets": {
+      "sha256": "8918fe04a11193b132332670dab124392399de8ad4769f06ceb199ae4cbe659b",
+      "lines": 21
+    },
+    "src/main/ets/jsbindings/PrintAdapterBind.ets": {
+      "sha256": "9bd9bb715bedceb1acfeb13ce171344c803c9e0fb80d45837b207d43fc6d199d",
+      "lines": 31
+    },
+    "src/main/ets/jsbindings/ProcessAdapterBind.ets": {
+      "sha256": "d4c4ad66bd39b22c7f753e5ae73bd2b211811232da3688b5791c800282239030",
+      "lines": 21
+    },
+    "src/main/ets/jsbindings/RunningLockAdapterBind.ets": {
+      "sha256": "d8943e016c4ccf3a4da54e903e71a7a8efad40cd8d0e690e0c86061fa1a7e414",
+      "lines": 26
+    },
+    "src/main/ets/jsbindings/ScreenlockMonitorAdapterBind.ets": {
+      "sha256": "dbd907f012934764899548f14b6956bf0ab920308bacdc1f59eff0849ff5bedb",
+      "lines": 26
+    },
+    "src/main/ets/jsbindings/ScreenshotAdapterBind.ets": {
+      "sha256": "85d9f47e82022805a83d3351982f94ff723f685ada5136016e08b4c577f948a2",
+      "lines": 23
+    },
+    "src/main/ets/jsbindings/ShapeDetectionAdapterBind.ets": {
+      "sha256": "7fd8d130d0898ceb592292ed8c12abeac146af3ffb5c321090fbc6eb0b870bbb",
+      "lines": 27
+    },
+    "src/main/ets/jsbindings/SpeechAdapterBind.ets": {
+      "sha256": "b7640ffb9c4b9e8168fe5a9b2203c6dc84b24aecb35dfc4f2cb10ccfa2e3e3ea",
+      "lines": 64
+    },
+    "src/main/ets/jsbindings/SubWindowAdapterBind.ets": {
+      "sha256": "e0173129fb7c8953ac5b8922d944b0aaef1adeaec5453f3f17dc8a22e7f427df",
+      "lines": 44
+    },
+    "src/main/ets/jsbindings/SystemFloatingWindowAdapterBind.ets": {
+      "sha256": "1a2b1136df4993a33642a88886c23e48ac4277c50fcbe47a76add6b1e3cee5c3",
+      "lines": 44
+    },
+    "src/main/ets/process/WebChildProcess.ets": {
+      "sha256": "3dfe624ec3736dd5663439f22031114a23a9b1c8f5f8b764404f7e521ccd6595",
+      "lines": 18
+    },
+    "src/main/ets/utils/CheckEmptyUtils.ts": {
+      "sha256": "5c6dae77ead693e4a2af57f023a16c89c730a865a809e848e5a80e7a37977857",
+      "lines": 35
+    },
+    "src/main/ets/utils/GlobalContext.ts": {
+      "sha256": "968b54b952e34d94b17d4bb94921a81708d8377a36789250c348e9410a3d97a5",
+      "lines": 28
+    },
+    "src/main/ets/utils/GlobalThisHelper.ets": {
+      "sha256": "5a3b944e5d126c7575de94d1eab649f956e39b9d966f24c594d8d5bb8cdbf39b",
+      "lines": 50
+    },
+    "src/main/ets/utils/JsBindingUtils.ets": {
+      "sha256": "5f1fe0fe691dbebcbdc1969316727e3cb09feab38984053ddb0c1fdcbd28f340",
+      "lines": 35
+    },
+    "src/main/ets/utils/LaunchHelper.ets": {
+      "sha256": "26ab6125be7bf4cc6317c109404806c7e84b2e69b6a2c98d7d8a532578eddf58",
+      "lines": 38
+    },
+    "src/main/ets/utils/LogUtil.ts": {
+      "sha256": "ee5e2bc8db554df66b489fbf4e0f8b8e9b0c813dd8c71fff458b52b6a9960fd2",
+      "lines": 53
+    },
+    "src/main/ets/utils/ObjUtil.ts": {
+      "sha256": "dae7ca04dde5ab9c5ffb747a30f6bcc8e2dbc9522b91c58287c4488de5975c48",
+      "lines": 9
+    },
+    "src/main/ets/utils/StringUtil.ts": {
+      "sha256": "5af704536026d34467a933e3355e31991f0d13e16e43d4107bb8b04b0e843b4a",
+      "lines": 21
+    },
+    "src/main/module.json5": {
+      "sha256": "7353d63d7514fae1e8cdb8577423f8c70ce54c7900b4a3a52484bf7cc12f4462",
+      "lines": 10
+    },
+    "src/main/resources/base/element/color.json": {
+      "sha256": "4ff83001dc04439a65164ecd548ab84f23f1b993d4e9c3fa7a4a21befc7f9bb9",
+      "lines": 24
+    },
+    "src/main/resources/base/element/string.json": {
+      "sha256": "904a4a9f065ca2a2444561bc78975c2ad798cb2e1f712756626dd0592bd764c0",
+      "lines": 104
+    },
+    "src/main/resources/base/media/background.png": {
+      "sha256": "3cf4698f029a4a8aaa5fc6a523399df68149ec07a392167ccd089fe3f11e3c67",
+      "lines": null
+    },
+    "src/main/resources/base/media/foreground.png": {
+      "sha256": "8f9794085cab5bf23644e339ec2b48eb5091d18b6a7742f7fcd87e5ae37794c5",
+      "lines": null
+    },
+    "src/main/resources/base/media/layered_image.json": {
+      "sha256": "3d18dcd7ed9e7d3d2c54c20cb80a44eb4877c661131c68a46e20b6e19d0bb476",
+      "lines": 7
+    },
+    "src/main/resources/base/media/startIcon.png": {
+      "sha256": "567c7c0c7a321ca180e010ad880f0f7519f6d351ac2b9665e2ee710e7cfe7778",
+      "lines": null
+    },
+    "src/main/resources/en_US/element/string.json": {
+      "sha256": "3d2e2fe6e2eeed455e3ba8d7c650a157fc707aeb5df19e43286973ec0cf2a379",
+      "lines": 92
+    },
+    "src/main/resources/zh_CN/element/string.json": {
+      "sha256": "35fbe2000fe4e917aea28a89831bbae16a31eace141e1f99e85d0d8f3542f4ae",
+      "lines": 92
+    },
+    "src/test/List.test.ets": {
+      "sha256": "268e4980ef2fdfe0c7ff6a19402bc214ab90f25807998098d2513cc50e9dd86b",
+      "lines": 5
+    },
+    "src/test/LocalUnit.test.ets": {
+      "sha256": "60e885ad330901a3c6a513dd8fbd91330480ec1c55c850fad94f6edbef5883ad",
+      "lines": 33
+    }
+  }
+}

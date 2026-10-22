@@ -13,6 +13,7 @@
 | `sdk/cmake`、`sdk/libcef_dll` | 同套 CMake 配置和 C/C++ 包装源码 |
 | `sdk/ohos`、`sdk/log` | 鸿蒙嵌入适配源码，以及该包装源码引用的日志实现 |
 | `sdk/web_engine` | ArkTS 适配模块、原生类型声明和浏览器核心资源 |
+| `web_engine` | 随 Git 固定的轻量 HAR 适配源码和类型声明，供首次 OHPM 同步 |
 | `sdk/Release` | 指向 `entry/libs/arm64-v8a` 的相对库链接 |
 | `sdk/licenses` | 从同套 CEF 头文件保留的 BSD 许可声明 |
 | `sdk/files.json` | 逐文件来源相对路径、大小及 SHA-256 |
@@ -21,7 +22,11 @@
 `libadapter_c.so`、`libc++_shared.so`。`libadapter_c.so` 来自通达的已剥离构建产物，
 本次没有重新编译，因此尚未验证它与迁入源码的构建一致性。
 
-## 重新准备
+## 恢复与升级
+
+macOS ARM64 宿主首次 Run 由 `prepare_prebuilt.py` 自动恢复固定 SDK 和运行库，
+不再要求克隆者提供通达工程。版本和哈希见 `third_party/prebuilt/manifest.json`。
+维护者更换依赖来源时仍可使用以下迁入命令，再更新固定包及对应 HAR 源码：
 
 ```sh
 python3 packaging/ohos/prepare_cef.py --source /已有工程/OpenQtCef
@@ -34,9 +39,9 @@ SDK 文件及大体积运行库遵循现有本地依赖策略，不进入 Git；
 
 ## 汇文 Markdown 预览接入
 
-SDK 迁入后会调用 `packaging/ohos/prepare_cef_preview.py`。已有 SDK 也可单独运行该脚本，
-再由 DevEco 同步依赖。脚本生成 `.native-tools/cef-web-engine/` HAR 副本，固定其 JS 依赖，
-清除来源模块的权限声明，并将 CEF 核心数据同步到 `entry/src/main/resources/resfile/`。
+SDK 迁入后会调用 `packaging/ohos/prepare_cef_preview.py`。Run 在恢复固定包后同样调用该脚本，
+将 CEF 核心数据同步到 `entry/src/main/resources/resfile/`。HAR 源码已纳入 `web_engine/`，
+固定其 JS 依赖并清除来源模块的权限声明；Run 不再生成或覆盖 HAR 源码。
 应用在 `entry/src/main/module.json5` 中单独声明 CEF 使用的 `INTERNET` 和 `GET_NETWORK_INFO`。
 SDK 原文件和逐文件来源清单保持不变；生成副本及核心数据被 Git 忽略。
 

@@ -1,0 +1,10 @@
+{
+  "module": {
+    "name": "web_engine",
+    "type": "har",
+    "deviceTypes": [
+      "tablet",
+      "2in1"
+    ]
+  }
+}

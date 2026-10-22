@@ -2,15 +2,15 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "汇文MCP 文档转换模块"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "汇文MCP 文档转换应用"
     },
     {
       "name": "EntryAbility_label",
-      "value": "label"
+      "value": "汇文MCP"
     }
   ]
 }

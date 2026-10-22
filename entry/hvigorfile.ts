@@ -18,9 +18,10 @@ const prepareNativeDependenciesPlugin = {
         const pythonSetting =
           process.env.HOST_PYTHON ?? properties.match(/^\s*python\.host\.path\s*=\s*(.+)$/m)?.[1].trim() ?? 'python3';
         const python = pythonSetting.includes(path.sep) ? path.resolve(projectRoot, pythonSetting) : pythonSetting;
-        if (!fs.existsSync(path.join(projectRoot, 'third_party/qt/sdk.json'))) {
-          throw new Error('缺少项目内 Qt 开发包；请先运行 packaging/ohos/prepare_qt.py');
-        }
+        execFileSync(python, [path.join(projectRoot, 'packaging/ohos/prepare_prebuilt.py')], {
+          cwd: projectRoot,
+          stdio: 'inherit'
+        });
         execFileSync(python, [path.join(projectRoot, 'packaging/ohos/build_pdfium.py')], {
           cwd: projectRoot,
           stdio: 'inherit'
@@ -36,7 +37,7 @@ const prepareMarkdownResourcesPlugin = {
   apply(node: any) {
     node.registerTask({
       name: 'PrepareMarkdownResources',
-      dependencies: ['default@PreBuild'],
+      dependencies: ['default@PreBuild', 'PrepareNativeDependencies'],
       postDependencies: ['default@ConfigureCmake', 'default@CompileResource', 'default@PackageHap'],
       run: (context: any) => {
         const projectRoot = path.resolve(context.modulePath.toString(), '..');

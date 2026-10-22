@@ -6,7 +6,7 @@ import hilog from '@ohos.hilog';
 
 
 export default class EntryAbility extends UIAbility {
-  tag = "HuiWenMCP";
+  tag = "HuiwenMCP";
   domain = 0xFF00;
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {

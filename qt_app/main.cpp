@@ -10,7 +10,8 @@
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    app.setApplicationName("HuiWenMCP");
+    app.setApplicationName("HuiwenMCP");
+    app.setApplicationDisplayName(QStringLiteral("汇文MCP"));
     ConversionWindow window;
     window.showMaximized();
 #ifdef Q_OS_OPENHARMONY

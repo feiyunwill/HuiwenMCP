@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(HuiWenMCP)
+project(HuiwenMCP)
 
 # 头文件、工具和配置使用项目内开发包；库入口指向 entry/libs。
 get_filename_component(project_root "${CMAKE_CURRENT_SOURCE_DIR}/../../../.." ABSOLUTE)

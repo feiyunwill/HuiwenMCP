@@ -1,0 +1,2 @@
+# 原样迁入的 CEF SDK 适配源码保留上游格式，自有代码仍进行空白检查。
+third_party/cef/web_engine/** -whitespace

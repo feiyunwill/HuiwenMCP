@@ -1,5 +1,5 @@
 /*
- * 汇文 MCP 的 Python HNP 调用接口。
+ * 汇文MCP 的 Python HNP 调用接口。
  * 只执行应用内置的自检与 PDF 转换脚本，不接收外部命令。
  */
 #ifndef HUIWEN_PYTHON_RUNNER_H

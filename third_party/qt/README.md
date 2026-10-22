@@ -2,9 +2,12 @@
 
 当前使用 Qt 5.15.12 的 OpenHarmony ARM64 构建。运行库的唯一部署位置为
 `entry/libs/arm64-v8a/`；本目录的库入口是指向该目录的相对符号链接。
-头文件、官方 CMake 配置、mkspecs、宿主工具和 sdk.json 是本地依赖，不进入 Git。
+头文件、官方 CMake 配置、mkspecs、宿主工具和 sdk.json 由固定依赖包恢复，不直接进入 Git。
+当前支持 macOS ARM64 宿主；首次 Run 自动恢复，后续校验并复用，不重编 Qt。
+包版本、下载地址、文件哈希见 `third_party/prebuilt/manifest.json`，发布及离线使用说明见
+`third_party/prebuilt/README.md`。本地依赖与锁定包不一致时会停止，不覆盖自定义 Qt。
 
-首次准备或升级 SDK 时执行：
+维护者从原始 SDK 首次制包或升级版本时执行：
 
 ```sh
 python3 packaging/ohos/prepare_qt.py \

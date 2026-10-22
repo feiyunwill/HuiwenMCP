@@ -103,6 +103,7 @@ try {
   const task = tasks.find((item) => item.name === 'PrepareMarkdownResources');
   assert.ok(task);
   assert.ok(task.dependencies.includes('default@PreBuild'));
+  assert.ok(task.dependencies.includes('PrepareNativeDependencies'));
   for (const name of ['default@ConfigureCmake', 'default@CompileResource', 'default@PackageHap']) {
     assert.ok(task.postDependencies.includes(name));
   }

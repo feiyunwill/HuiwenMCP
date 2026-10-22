@@ -1,5 +1,5 @@
 /*
- * 汇文 MCP 的私有 HNP Python 进程启动器。
+ * 汇文MCP 的私有 HNP Python 进程启动器。
  * 定位应用自带解释器，异步任务中执行固定脚本并收集运行结果。
  */
 #include "python_runner.h"

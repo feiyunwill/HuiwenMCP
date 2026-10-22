@@ -18,7 +18,7 @@ ConversionWindow::ConversionWindow(QWidget *parent)
       result_(new MarkdownResultView), button_(new ConvertButton(this)), buttonBackdrop_(new QWidget(this)),
       conversion_(new ConversionService(this)), sandbox_(new SandboxService(this)), status_(new QLabel(this))
 {
-    setWindowTitle(QStringLiteral("汇文 MCP · 转换工作区"));
+    setWindowTitle(QStringLiteral("汇文MCP · 转换工作区"));
     setMinimumSize(640, 480);
     setAutoFillBackground(true);
     QPalette colors = palette();
