@@ -1,0 +1,8 @@
+/* CodeMirror 自身的样式由 EditorView 注入；这里仅提供容器尺寸规则。 */
+.cm-editor {
+  height: 100%;
+}
+
+.cm-scroller {
+  overflow: auto;
+}

@@ -30,6 +30,25 @@ const prepareNativeDependenciesPlugin = {
   }
 };
 
+// 每次 Run 都重新生成 Markdown Web 资源，使用运行 Hvigor 的同一套 Node。
+const prepareMarkdownResourcesPlugin = {
+  pluginId: 'huiwen.prepare-markdown-resources',
+  apply(node: any) {
+    node.registerTask({
+      name: 'PrepareMarkdownResources',
+      dependencies: ['default@PreBuild'],
+      postDependencies: ['default@CompileResource', 'default@PackageHap'],
+      run: (context: any) => {
+        const projectRoot = path.resolve(context.modulePath.toString(), '..');
+        execFileSync(process.execPath, [path.join(projectRoot, 'packaging/ohos/build_markdown.mjs')], {
+          cwd: projectRoot,
+          stdio: 'inherit'
+        });
+      }
+    });
+  }
+};
+
 // 每次运行此任务先生成新 HNP，再在签名前重打未签名 HAP。
 const repackHapWithHnpPlugin = {
   pluginId: 'huiwen.repack-hap-with-hnp',
@@ -140,5 +159,5 @@ const repackHapWithHnpPlugin = {
 
 export default {
   system: hapTasks /* Built-in plugin of Hvigor. It cannot be modified. */,
-  plugins: [prepareNativeDependenciesPlugin, repackHapWithHnpPlugin]
+  plugins: [prepareNativeDependenciesPlugin, prepareMarkdownResourcesPlugin, repackHapWithHnpPlugin]
 };

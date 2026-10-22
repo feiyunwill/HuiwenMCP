@@ -16,6 +16,11 @@
 /third_party/qt/sdk.json
 # 通达迁入的 CEF 环境是本地依赖；版本清单、说明和准备脚本进入 Git。
 /third_party/cef/sdk/
+# Markdown 发布包和官方源码快照在本机准备，Git 保存版本锁及说明。
+/third_party/markdown/node_modules/
+/third_party/markdown/sources/
+# Markdown Web 资源每次 Run 生成，随 HAP 分发，不进入 Git。
+/entry/src/main/resources/rawfile/markdown/
 /.native-tools/
 /third_party/.gclient*
 /third_party/.cipd/

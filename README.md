@@ -162,6 +162,12 @@ python3 packaging/ohos/build_pdfium.py --sync
 
 DevEco Run 的顺序为 `PreBuild → PrepareNativeDependencies → ConfigureCmake / CompileResource → BuildNativeWithNinja → ProcessLibs → PackageHap → RepackHapWithHnp → SignHap`。PDFium 编译和 Qt/NAPI 库同步在收集原生库之前完成；未改动的源码复用产物。这里只实现运行构建时更新，没有文件监听器，也没有在运行进程内卸载和替换 C++ 库。
 
+Markdown 另由 `PrepareMarkdownResources` 在 `PreBuild` 后、`CompileResource` 和 `PackageHap` 前准备。
+它复用 Hvigor 的 Node/npm，首次 Run 联网按锁文件自动安装依赖，之后每次重新生成
+`entry/src/main/resources/rawfile/markdown/` 下的 JS/CSS、许可证和校验清单，随 HAP 收集；
+安装或构建失败会停止打包。无需额外安装前端工具，不改动已有原生库构建逻辑，
+也尚未接入编辑／预览页面。详见 [Markdown 构建说明](third_party/markdown/README.md)。
+
 需要核对更新链路时，可运行 `python3 packaging/ohos/check_run_update.py`。它临时向 PDFium 加入两版构建探针，分别执行 HAP 构建并核对 `libs` 与 HAP 中的实际库内容，最后移除探针并重建最终包；不会安装或启动设备应用。该检查需要已配置可用的 HAP 签名，也会执行原有 Python HNP 打包。
 
 首次克隆时连同固定版本的 MarkItDown 子模块一起下载：
