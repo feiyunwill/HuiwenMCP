@@ -1,6 +1,7 @@
 /* Qt Widgets 工作区入口：默认最大化并保留系统边框，窗口实际曝光后通知鸿蒙关闭原首页。 */
 #include "workspace/ConversionWindow.h"
 #include <QApplication>
+#include <QIcon>
 #include <QTimer>
 #include <QWindow>
 #ifdef Q_OS_OPENHARMONY
@@ -12,6 +13,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     app.setApplicationName("HuiwenMCP");
     app.setApplicationDisplayName(QStringLiteral("汇文MCP"));
+    app.setWindowIcon(QIcon(QStringLiteral(":/branding/app_icon.png")));
     ConversionWindow window;
     window.showMaximized();
 #ifdef Q_OS_OPENHARMONY

@@ -27,15 +27,16 @@
         "type": "private"
       }
     ],
+    // 首页、Qt 工作区及各自启动页统一使用汇文应用图标。
     "abilities": [
       {
         "name": "QtWorkspaceAbility",
         "srcEntry": "./ets/entryability/QtWorkspaceAbility.ets",
         "launchType": "singleton",
         "description": "$string:EntryAbility_desc",
-        "icon": "$media:layered_image",
+        "icon": "$media:app_icon",
         "label": "$string:EntryAbility_label",
-        "startWindowIcon": "$media:startIcon",
+        "startWindowIcon": "$media:app_icon",
         "startWindowBackground": "$color:start_window_background",
         "exported": false
       },
@@ -44,9 +45,9 @@
         "srcEntry": "./ets/entryability/EntryAbility.ets",
         "launchType": "specified",
         "description": "$string:EntryAbility_desc",
-        "icon": "$media:layered_image",
+        "icon": "$media:app_icon",
         "label": "$string:EntryAbility_label",
-        "startWindowIcon": "$media:startIcon",
+        "startWindowIcon": "$media:app_icon",
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
         "skills": [

@@ -9,4 +9,7 @@
         <file alias="photo.png">file-icons/photo.png</file>
         <file alias="genericfile.png">file-icons/genericfile.png</file>
     </qresource>
+    <qresource prefix="/branding">
+        <file alias="app_icon.png">branding/app_icon.png</file>
+    </qresource>
 </RCC>

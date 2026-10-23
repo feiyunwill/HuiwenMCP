@@ -149,6 +149,16 @@ HuiWenMCP/
 
 系统选择器返回的 URI 只用于读取选中文件；应用内部后续使用沙箱副本路径。转换成功后才生成非空 `.md` 文件并显示路径；文字无法提取的扫描件会提示需要 OCR，不生成空结果。ArkTS 首页仍只导入文件，正文预览由 Qt 工作区左侧的“预览”按钮进入。点击 MD 卡片沿用原有系统文件管理器跳转；鸿蒙通过 ArkTS 的 `openLink('filemanager://openDirectory')` 传入结果文件 URI。底部继续显示生成的完整 MD 路径，不增加应用内目录窗口，不导出或移动文件。内部路径由应用级 `Context.filesDir` 获取，与模块级 `haps/entry/files` 不同。转换成功前与点击结果时都会校验文件；不存在、为空或不可读取时显示错误。
 
+## 应用图标
+
+统一使用 `.native-tools/design/huiwen-icon-rounded-final.png` 的最终版图标，原图为 1024×1024 PNG，保留透明圆角。正式资源直接随仓库保存，构建使用以下文件：
+
+- `AppScope/resources/base/media/app_icon.png`：应用级图标，由 `AppScope/app.json5` 引用。
+- `entry/src/main/resources/base/media/app_icon.png`：ArkTS 首页与 Qt 工作区 Ability 图标，以及各自的启动页图标。
+- `qt_app/resources/branding/app_icon.png`：Qt 窗口图标，通过现有 QRC 注册为 `:/branding/app_icon.png`，在 `main.cpp` 中统一设置。
+
+三份资源均直接复制最终版 PNG；更新品牌图标时同步替换这三份文件。
+
 ## 本地构建
 
 工程当前配置为 HarmonyOS PC、`arm64-v8a`，目标 SDK 为 `6.1.1(24)`。首次克隆后，将 `build-profile.example.json5` 复制为本机的 `build-profile.json5`，需要安装到设备时再在 DevEco Studio 配置签名。

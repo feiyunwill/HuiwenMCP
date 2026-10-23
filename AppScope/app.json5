@@ -5,7 +5,8 @@
     "versionCode": 1000000,
     "versionName": "1.0.0",
     "buildVersion": "1",
-    "icon": "$media:layered_image",
+    // 应用图标使用汇文最终版 PNG，保留原图透明圆角。
+    "icon": "$media:app_icon",
     "label": "$string:app_name"
   }
 }
