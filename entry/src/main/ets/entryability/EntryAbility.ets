@@ -3,6 +3,7 @@ import UIAbility from '@ohos.app.ability.UIAbility';
 import Window from '@ohos.window'
 import Want from '@ohos.app.ability.Want';
 import hilog from '@ohos.hilog';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 
 export default class EntryAbility extends UIAbility {
@@ -27,6 +28,27 @@ export default class EntryAbility extends UIAbility {
     windowStage.loadContent('pages/HomePage', (err) => {
       if (err.code) {
         hilog.error(this.domain, this.tag, 'Failed to load page: %{public}s', JSON.stringify(err));
+        return;
+      }
+      // 两层背景分别设置，容器设置失败也不会阻断内容背景透明。
+      try {
+        windowStage.getMainWindowSync().setWindowBackgroundColor('#00000000');
+      } catch (error) {
+        const failure = error as BusinessError;
+        hilog.warn(this.domain, this.tag,
+          'HUIWEN_HOME_TRANSPARENT_FAILED: stage=background, code=%{public}d, message=%{public}s',
+          failure.code, failure.message);
+      }
+      try {
+        // 仅设置首页窗口；主内容保持实色，保留系统标题栏与窗口控制按钮。
+        // 焦点态透明，非焦点态需使用不透明底色。
+        windowStage.getMainWindowSync().setWindowContainerColor('#00000000', '#FFF5F7FB');
+      } catch (error) {
+        const failure = error as BusinessError;
+        // 不支持容器透明时保留系统容器背景，首页与按钮仍可使用。
+        hilog.warn(this.domain, this.tag,
+          'HUIWEN_HOME_TRANSPARENT_FAILED: stage=container, code=%{public}d, message=%{public}s',
+          failure.code, failure.message);
       }
     });
   }

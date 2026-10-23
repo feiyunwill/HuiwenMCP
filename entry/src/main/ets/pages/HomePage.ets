@@ -1,5 +1,6 @@
 // ArkTS 首页独立于 QPA 固定加载的 Index 承载页，负责功能入口和窗口交接。
 import { common } from '@kit.AbilityKit';
+import { FunctionSidebar } from '../components/FunctionSidebar';
 import { getNativeStatus, pdfToMd } from '../services/ConversionService';
 import { DocumentKind, pickDocumentToSandbox } from '../utils/DocumentStore';
 
@@ -107,6 +108,18 @@ struct HomePage {
   }
 
   build() {
+    // 根布局透明，只有左侧窄栏透出窗口后方；主内容自己绘制不透明背景。
+    Row() {
+      FunctionSidebar()
+      this.homeContent()
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(Color.Transparent)
+  }
+
+  @Builder
+  homeContent() {
     Row({ space: 24 }) {
       // 左侧暂用文字代替应用宣传图。
       Column({ space: 20 }) {
@@ -204,7 +217,7 @@ struct HomePage {
       .backgroundColor('#FFFFFF')
       .borderRadius(24)
     }
-    .width('100%')
+    .layoutWeight(1)
     .height('100%')
     .padding(24)
     .backgroundColor('#F5F7FB')

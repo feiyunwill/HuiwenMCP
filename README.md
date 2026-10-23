@@ -13,6 +13,7 @@
 ## 当前状态
 
 - 首页保持 ArkTS；PDF/MD 预览按钮仍只导入文件，PDF 转 MD 按钮改为启动独立 Qt 工作区。
+- ArkTS 首页左侧有 60vp 半透明窄侧栏，底部保留 36vp 三横线 SVG 菜单按钮，目前尚未接入菜单内容。首页内容背景与窗口容器分别设置透明，焦点态容器透明，非焦点态使用实色，右侧主内容保持不透明。
 - Qt 开发依赖保存在 `third_party/qt/`，运行库从 `entry/libs/arm64-v8a/` 链接并随 HAP 分发；PDFium fork 保存在 `third_party/pdfium/`，Qt 左侧输入区域已接入其公开 C API 实现正文预览；已完成鸿蒙编译、HAP 打包；系统目录跳转沿用原有实现。
 - DevEco Run 构建前执行 `PrepareNativeDependencies`，按当前 PDFium 源码增量生成 `libpdfium.so`；Qt/NAPI 的 C++ 编译后同步新库到 `libs`。没有保存源码自动构建、应用内动态替换库或保持进程状态的热重载。
 - Qt 工作区默认最大化并保留系统标题栏和窗口边框，输入、输出区域解耦；中部分割线可拖动，悬浮“转化”按钮随分隔线移动。
@@ -34,6 +35,7 @@ HuiWenMCP/
 │   │   │   ├── abilitystage/QtAbilityStage.ets [已有] Qt 平台初始化
 │   │   │   ├── entryability/EntryAbility.ets  [已有] ArkTS 启动入口
 │   │   │   ├── entryability/QtWorkspaceAbility.ets [已有] Qt 窗口及系统文件操作
+│   │   │   ├── components/FunctionSidebar.ets [已有] 首页半透明窄栏与底部菜单按钮
 │   │   │   ├── pages/HomePage.ets      [已有] ArkTS 首页和功能入口
 │   │   │   ├── pages/Index.ets         [已有] QPA 固定加载的 Qt XComponent 承载页
 │   │   │   ├── services/ConversionService.ets [已有] 页面调用原生转换的统一入口
@@ -237,6 +239,12 @@ hvigorw assembleHap --mode module -p product=default -p module=entry@default
 - 调整模块、原生库或打包方式时更新“工程结构”和“本地构建”。
 - 不把生成的 HAP、构建缓存或本机 SDK 路径写成跨机器通用的依赖。
 - 不提交 `entry/libs/` 和 `third_party/qt/` 中的本机开发依赖；NAPI、Qt 应用与 PDFium `.so` 按源码增量生成，Qt 运行库由准备脚本导入。主仓库只固定 PDFium 子模块提交，fork 修改在其独立仓库维护。
+
+## ArkTS 首页侧栏
+
+- 侧栏固定在启动首页左侧，宽度 60vp；底部仅一个三横线按钮，尺寸 36×36vp，距底部 20vp。图标为 `resources/base/media/sidebar_menu.svg`，来自 [Feather Menu](https://github.com/feathericons/feather/blob/main/icons/menu.svg)，保留三横线几何形状并固定颜色，以 24×24vp 的 `Image` 显示；[上游 MIT 许可](entry/src/main/resources/rawfile/licenses/feather-icons-LICENSE.txt) 随 rawfile 分发。按钮保留零内边距，不依赖字符字体或文本省略行为。主内容占据剩余宽度，原有文件选择和启动 Qt 的入口继续使用。
+- `EntryAbility` 在页面加载后，先设置 `setWindowBackgroundColor('#00000000')`，再独立设置 `setWindowContainerColor('#00000000', '#FFF5F7FB')`；后者需要 `ohos.permission.SET_WINDOW_TRANSPARENT`，已在模块中声明。焦点态容器透明，非焦点态使用不透明底色。两个步骤各自处理异常，设置失败时保留必要错误日志，不阻断首页使用。根布局透明，侧栏背景为 `#fae5e9ec`（约 98% 不透明度），主内容背景仍为实色；只调整背景透明度，按钮保持清晰，不额外增加模糊效果。
+- 侧栏组件通过 `FunctionSidebar.onMenuRequested` 提供菜单点击入口，首页暂不绑定业务操作；Qt 转换工作区不增加侧栏。
 
 ## Qt 工作区验收
 
