@@ -12,7 +12,7 @@
 
 ## 当前状态
 
-- 首页保持 ArkTS；PDF/MD 预览按钮仍只导入文件，PDF 转 MD 按钮改为启动独立 Qt 工作区。
+- 首页保持 ArkTS；蓝色介绍区与主区域按约 30% / 70% 分配宽度，主区域提供文档预览、文档编辑、文档转化三个小正方形入口，普通字重的名称放在方块外下方。点击入口打开独立格式选择子窗口；预览和编辑仅展示 Word、PDF、MD 格式，转化窗口中的 PDF→MD 入口启动独立 Qt 工作区。
 - ArkTS 首页左侧有 60vp 半透明窄侧栏，底部保留 36vp 三横线 SVG 菜单按钮，目前尚未接入菜单内容。首页内容背景与窗口容器分别设置透明，焦点态容器透明，非焦点态使用实色，右侧主内容保持不透明。
 - Qt 开发依赖保存在 `third_party/qt/`，运行库从 `entry/libs/arm64-v8a/` 链接并随 HAP 分发；PDFium fork 保存在 `third_party/pdfium/`，Qt 左侧输入区域已接入其公开 C API 实现正文预览；已完成鸿蒙编译、HAP 打包；系统目录跳转沿用原有实现。
 - DevEco Run 构建前执行 `PrepareNativeDependencies`，按当前 PDFium 源码增量生成 `libpdfium.so`；Qt/NAPI 的 C++ 编译后同步新库到 `libs`。没有保存源码自动构建、应用内动态替换库或保持进程状态的热重载。
@@ -36,7 +36,9 @@ HuiWenMCP/
 │   │   │   ├── entryability/EntryAbility.ets  [已有] ArkTS 启动入口
 │   │   │   ├── entryability/QtWorkspaceAbility.ets [已有] Qt 窗口及系统文件操作
 │   │   │   ├── components/FunctionSidebar.ets [已有] 首页半透明窄栏与底部菜单按钮
-│   │   │   ├── pages/HomePage.ets      [已有] ArkTS 首页和功能入口
+│   │   │   ├── components/HomeFeatureCard.ets [已有] 正方形功能卡片与 SVG 图标
+│   │   │   ├── components/HomeFormatDialog.ets [已有] 独立格式选择子窗口与 PDF→MD 跳转事件
+│   │   │   ├── pages/HomePage.ets      [已有] 首页功能切换与 Qt 窗口交接
 │   │   │   ├── pages/Index.ets         [已有] QPA 固定加载的 Qt XComponent 承载页
 │   │   │   ├── services/ConversionService.ets [已有] 页面调用原生转换的统一入口
 │   │   │   └── utils/DocumentStore.ets [已有] 系统选取授权与 NAPI 适配
@@ -101,7 +103,7 @@ HuiWenMCP/
 └── README.md                          [已有] 项目状态与维护说明
 ```
 
-当前 Qt 转换链为 `ConvertButton → Qt ConversionService.convertPdfToMd() → PythonRunner → convert_pdf.py → huiwen_converter.pdf_to_md() → MarkItDown → outputs/md/*.md`。Python API 与第三方库适配保持原有边界。原 ArkTS 转换接口仍保留，但首页按钮原来的即时转换调用已注释。
+当前 Qt 转换链为 `ConvertButton → Qt ConversionService.convertPdfToMd() → PythonRunner → convert_pdf.py → huiwen_converter.pdf_to_md() → MarkItDown → outputs/md/*.md`。Python API 与第三方库适配保持原有边界。原 ArkTS 转换接口仍保留；首页通过“文档转化 → PDF→MD”进入 Qt，不再选文件或直接执行转换。
 
 鸿蒙跳转由 `HomePage.ets → startAbility(QtWorkspaceAbility) → QPA.startQtApplication() → libhuiwen_qt.so/main()` 完成。Qt 窗口实际显示后通过 NAPI 线程安全回调通知新 Ability；新 Ability 通过应用 EventHub 通知首页，只有发起跳转的首页消费一次通知并调用 `terminateSelf()`。这只结束首页 Ability，不结束应用进程。
 
@@ -126,7 +128,7 @@ HuiWenMCP/
 - `platform/harmony/harmony_sandbox.h/.cpp` 和 `harmony_sandbox_napi.cpp` 以 `harmony_` 命名，只在 `CMAKE_SYSTEM_NAME=OHOS` 时加入原生库；源码由 `Q_OS_OPENHARMONY` 宏保护，不向 Windows/macOS 引入鸿蒙 SDK 类型。后续平台实现应放入各自目录，并通过平台条件选择，避免把规则回填到 ArkTS 或混入通用界面。
 - `harmonyImportDocument(filesDir, name, fd, kind, forConversion)` 返回 `Promise<HarmonySandboxDocument>`；NAPI 同步复制授权 fd，并设置关闭时不继承到子进程，在工作线程使用独立偏移读取、排他创建目标文件、分块复制。调用方的 fd 生命周期及读偏移不受复制影响；成功、失败或排队失败均释放原生 fd，复制失败仅移除本次创建的输入文件。
 - `harmonyValidateOutput(filesDir, path)` 同步校验输出目录归属、规范路径、符号链接实际位置及非空可读 MD。ArkTS 拿到校验后的路径，再使用既有 `fileUri` 和 `openLink` 打开系统文件管理器；旧 `outputs/md/` 与日期目录都兼容。
-- 日期目录与重名分配使用同一份 C++ 规则；并发导入通过路径分配锁与排他文件创建避免覆盖，原 PDF/MD 预览入口继续复用同一接口。系统选取取消时不创建沙箱文件。
+- 日期目录与重名分配使用同一份 C++ 规则；并发导入通过路径分配锁与排他文件创建避免覆盖，PDF/MD 导入共用同一接口。首页预览和编辑格式选项暂不发起导入；系统选取取消时不创建沙箱文件。
 
 ## 沙箱文件路径
 
@@ -141,13 +143,13 @@ HuiWenMCP/
         └── YYYY-MM-DD/          当天导入的 PDF 对应的 Markdown
 ```
 
-| 按钮 | 选取后记录的路径 | 本阶段行为 |
+| 入口 | 沙箱路径 | 本阶段行为 |
 | --- | --- | --- |
-| PDF 预览 | `files/inputs/YYYY-MM-DD/<原文件名>.pdf` | 打开系统选择器、复制文件、留在首页 |
-| MD 预览 | `files/inputs/YYYY-MM-DD/<原文件名>.md`（选择 `.markdown` 时保留该后缀） | 打开系统选择器、复制文件、留在首页 |
-| PDF 转 MD | 输入：`files/inputs/YYYY-MM-DD/<原文件名>.pdf`；输出：`files/outputs/YYYY-MM-DD/<原文件名>.md` | 首页打开 Qt；Qt 输入区域选取文件，点击转化后显示 MD 卡片 |
+| 文档预览 | 暂不导入 | 仅展示 Word、PDF、MD 格式图标，不跳转 |
+| 文档编辑 | 暂不导入 | 仅展示 Word、PDF、MD 格式图标，不跳转 |
+| 文档转化 → PDF→MD | 输入：`files/inputs/YYYY-MM-DD/<原文件名>.pdf`；输出：`files/outputs/YYYY-MM-DD/<原文件名>.md` | 首页打开 Qt；Qt 输入区域选取文件，点击转化后显示 MD 卡片 |
 
-系统选择器返回的 URI 只用于读取选中文件；应用内部后续使用沙箱副本路径。转换成功后才生成非空 `.md` 文件并显示路径；文字无法提取的扫描件会提示需要 OCR，不生成空结果。ArkTS 首页仍只导入文件，正文预览由 Qt 工作区左侧的“预览”按钮进入。点击 MD 卡片沿用原有系统文件管理器跳转；鸿蒙通过 ArkTS 的 `openLink('filemanager://openDirectory')` 传入结果文件 URI。底部继续显示生成的完整 MD 路径，不增加应用内目录窗口，不导出或移动文件。内部路径由应用级 `Context.filesDir` 获取，与模块级 `haps/entry/files` 不同。转换成功前与点击结果时都会校验文件；不存在、为空或不可读取时显示错误。
+系统选择器返回的 URI 只用于读取选中文件；应用内部后续使用沙箱副本路径。转换成功后才生成非空 `.md` 文件并显示路径；文字无法提取的扫描件会提示需要 OCR，不生成空结果。首页只进行功能与格式选择，文件导入和正文预览均由 Qt 工作区处理，PDF 正文由左侧的“预览”按钮进入。点击 MD 卡片沿用原有系统文件管理器跳转；鸿蒙通过 ArkTS 的 `openLink('filemanager://openDirectory')` 传入结果文件 URI。底部继续显示生成的完整 MD 路径，不增加应用内目录窗口，不导出或移动文件。内部路径由应用级 `Context.filesDir` 获取，与模块级 `haps/entry/files` 不同。转换成功前与点击结果时都会校验文件；不存在、为空或不可读取时显示错误。
 
 ## 应用图标
 
@@ -250,9 +252,17 @@ hvigorw assembleHap --mode module -p product=default -p module=entry@default
 - 不把生成的 HAP、构建缓存或本机 SDK 路径写成跨机器通用的依赖。
 - 不提交 `entry/libs/` 和 `third_party/qt/` 中的本机开发依赖；NAPI、Qt 应用与 PDFium `.so` 按源码增量生成，Qt 运行库由准备脚本导入。主仓库只固定 PDFium 子模块提交，fork 修改在其独立仓库维护。
 
+## ArkTS 首页功能
+
+- 窗口大小和窄侧栏保持原有设置。除侧栏、外边距及分区间距外，介绍区与主区域使用 `layoutWeight(3)` / `layoutWeight(7)` 分配宽度，主区域取消固定 360vp 宽度。
+- “开始使用”下三个入口保持等宽列布局，浅灰正方形边长为所在列宽的 50%，即上一版方块边长的一半；方块内只放居中的 SVG，文档预览、文档编辑、文档转化名称以普通字重显示在方块外下方。`HomeFeatureCard` 只负责显示和点击事件，`HomePage` 保存当前功能选项。
+- 点击入口后，按 `docs/自定义弹窗模版.md` 使用 `getUIContext().getPromptAction().openCustomDialog()` 打开居中的独立格式选择子窗口，采用 `showInSubWindow: true`、`isModal: false` 的组合（该接口禁止子窗口同时启用模态，也不支持 `CustomDialogController` 的 `customStyle` 参数）；首页保存返回的弹窗 ID，通过 `closeCustomDialog(id)` 统一关闭，并处理打开失败、外部取消及首页退出期间的异步清理。系统背板与内容组件 `HomeFormatDialog` 共用 `HOME_FORMAT_DIALOG_WIDTH = 360`，内外宽度统一固定为 360vp，不再使用 90% 限制；高度随内容。只由系统背板绘制浅灰背景、16vp 圆角和阴影，关闭背景模糊，内部保持透明，避免宽度不一致留下透明空白。三个弹窗共用内容布局，内容居中；左右及底部内边距为 24vp，顶部为 40vp，为右上角关闭按钮留位；格式选项自身内边距为 12vp，转换入口使用透明背景，不再额外叠加白底和边框。弹窗不在首页内展开或预留面板高度，右上角仅保留 28×28vp 关闭按钮，内含 18×18vp 的 × SVG，也可点击外部取消。预览和编辑窗口仅展示 Word、PDF、MD，暂不选择文件或跳转；转化窗口展示 PDF→MD 组合图标入口。点击该入口后由 `HomeFormatDialog.onConvertRequested` 通知首页，关闭子窗口成功后再启动现有 Qt 工作区，仍在 Qt 窗口就绪后结束首页 Ability。启动期间禁用重复操作，失败显示错误。
+- `HomeFormatDialog` 通过 `title` 参数接收首页传入的标题，预览为“请选择要预览的格式”，编辑为“请选择要编辑的格式”，转化为“请选择要转化的格式”。标题以 18vp 普通字重显示在内容左上方，与格式选项间隔 16vp；保留右上角关闭按钮、360vp 内外统一宽度及原有背景设置。
+- 功能 SVG 使用 Feather `book-open`、`edit-3`、`repeat`，转化方向使用 `arrow-right`，弹窗关闭使用 `x`，许可随 `rawfile/licenses/feather-icons-LICENSE.txt` 分发。格式 PNG 原样复用 Qt 已有图标，来源见 [文件格式图标说明](qt_app/resources/file-icons/README.md)。所有图标从应用资源加载，无需运行时下载。
+
 ## ArkTS 首页侧栏
 
-- 侧栏固定在启动首页左侧，宽度 60vp；底部仅一个三横线按钮，尺寸 36×36vp，距底部 20vp。图标为 `resources/base/media/sidebar_menu.svg`，来自 [Feather Menu](https://github.com/feathericons/feather/blob/main/icons/menu.svg)，保留三横线几何形状并固定颜色，以 24×24vp 的 `Image` 显示；[上游 MIT 许可](entry/src/main/resources/rawfile/licenses/feather-icons-LICENSE.txt) 随 rawfile 分发。按钮保留零内边距，不依赖字符字体或文本省略行为。主内容占据剩余宽度，原有文件选择和启动 Qt 的入口继续使用。
+- 侧栏固定在启动首页左侧，宽度 60vp；底部仅一个三横线按钮，尺寸 36×36vp，距底部 20vp。图标为 `resources/base/media/sidebar_menu.svg`，来自 [Feather Menu](https://github.com/feathericons/feather/blob/main/icons/menu.svg)，保留三横线几何形状并固定颜色，以 24×24vp 的 `Image` 显示；[上游 MIT 许可](entry/src/main/resources/rawfile/licenses/feather-icons-LICENSE.txt) 随 rawfile 分发。按钮保留零内边距，不依赖字符字体或文本省略行为。功能卡片显示在侧栏右侧的主区域。
 - `EntryAbility` 在页面加载后，先设置 `setWindowBackgroundColor('#00000000')`，再独立设置 `setWindowContainerColor('#00000000', '#FFF5F7FB')`；后者需要 `ohos.permission.SET_WINDOW_TRANSPARENT`，已在模块中声明。焦点态容器透明，非焦点态使用不透明底色。两个步骤各自处理异常，设置失败时保留必要错误日志，不阻断首页使用。根布局透明，侧栏背景为 `#fae5e9ec`（约 98% 不透明度），主内容背景仍为实色；只调整背景透明度，按钮保持清晰，不额外增加模糊效果。
 - 侧栏组件通过 `FunctionSidebar.onMenuRequested` 提供菜单点击入口，首页暂不绑定业务操作；Qt 转换工作区不增加侧栏。
 
@@ -260,7 +270,7 @@ hvigorw assembleHap --mode module -p product=default -p module=entry@default
 
 本阶段页面入口为 `qt_app/src/workspace/ConversionWindow.cpp`。未创建后续侧栏目录；新增侧栏时使用 `sidebars/`，避免与输入/输出区域混淆。
 
-1. 点击 ArkTS 首页“PDF 转 MD”，Qt 默认最大化并保留系统标题栏、窗口边框及窗口控制按钮；查看 `QtWorkspace` 标签下的 `HUIWEN_QT_START`、`HUIWEN_QT_READY`，确认只有 `EntryAbility` 随后结束，`QtWorkspaceAbility` 保持运行；不应再出现 `newLocalStorage not found`、`Need object`。
+1. 点击 ArkTS 首页“文档转化”，再点击独立格式选择窗口中的“PDF → MD”，格式子窗口关闭后打开 Qt；Qt 默认最大化并保留系统标题栏、窗口边框及窗口控制按钮。查看 `QtWorkspace` 标签下的 `HUIWEN_QT_START`、`HUIWEN_QT_READY`，确认只有 `EntryAbility` 随后结束，`QtWorkspaceAbility` 保持运行；不应再出现 `newLocalStorage not found`、`Need object`。
 2. 左右文档区域占满状态栏上方的可用高度，底部状态栏保持紧凑；还原窗口并调整大小时布局应同步变化。悬停中间细线出现水平分割光标；拖动改变两侧宽度，底部小型“转化”按钮保持居中在线上。
 3. 点击左侧虚线加号选择 PDF，取消应保留原状态；选取后显示 PDF 占位图和原文件名，上方出现“预览”和“更换文件”。点击“预览”应显示正文，滚动可查看后续页；拖动分隔线或缩放窗口后，页面应按当前可用宽度等比重排并重新渲染。“返回文件”回到卡片；更换文件后回到卡片，从新文件第一页开始预览。损坏、加密文件应提示原因。
 4. 点击“转化”，操作期间不能重复选择或提交。成功后右侧显示 MD 占位图和输出文件名，底部显示 `code=0`、成功提示和完整路径；失败显示错误码及处理建议，按钮变为“重新转化”。重试期间禁用按钮，成功后恢复“转化”；更换文件恢复初始状态，取消选择保留原状态。
