@@ -73,7 +73,8 @@ HuiWenMCP/
 │       │   └── ConvertButton.h/.cpp    独立悬浮转化按钮
 │       ├── services/ConversionService.h/.cpp    异步 PDF 转 MD API
 │       ├── sandbox/
-│       │   ├── DocumentItem.h         文件格式、名称和输入/输出路径
+│       │   ├── DocumentItem.h         格式、路径、归档目录、缓存打开路径和使用时间
+│       │   ├── SandboxStore.h/.cpp    三类目录、最近记录、编辑缓存和路径校验
 │       │   └── SandboxService.h/.cpp  请求系统选择、接收沙箱路径和打开输出位置
 │       └── platform/harmony/
 │           ├── qt_bridge.h/.cpp              Qt ↔ ArkTS 线程桥
@@ -103,13 +104,13 @@ HuiWenMCP/
 └── README.md                          [已有] 项目状态与维护说明
 ```
 
-当前 Qt 转换链为 `ConvertButton → Qt ConversionService.convertPdfToMd() → PythonRunner → convert_pdf.py → huiwen_converter.pdf_to_md() → MarkItDown → outputs/md/*.md`。Python API 与第三方库适配保持原有边界。原 ArkTS 转换接口仍保留；首页通过“文档转化 → PDF→MD”进入 Qt，不再选文件或直接执行转换。
+当前 Qt 转换链为 `ConvertButton → Qt ConversionService.convertPdfToMd() → PythonRunner → convert_pdf.py → huiwen_converter.pdf_to_md() → MarkItDown → convert/<时间戳_文件名>/output/*.md`。Python API 与第三方库适配保持原有边界。原 ArkTS 转换接口仍保留；首页通过“文档转化 → PDF→MD”进入 Qt，不再选文件或直接执行转换。
 
 鸿蒙跳转由 `HomePage.ets → startAbility(QtWorkspaceAbility) → QPA.startQtApplication() → libhuiwen_qt.so/main()` 完成。Qt 窗口实际显示后通过 NAPI 线程安全回调通知新 Ability；新 Ability 通过应用 EventHub 通知首页，只有发起跳转的首页消费一次通知并调用 `terminateSelf()`。这只结束首页 Ability，不结束应用进程。
 
 当前 QPA 固定加载 `pages/Index`，不能让该路由同时作为 ArkTS 首页。`EntryAbility` 加载独立的 `pages/HomePage`；`Index.ets` 仅创建 Qt 的 NODE 类型 XComponent。`QtWorkspaceAbility.newLocalStorage()` 提供存储，QPA 写入 `idName` 并传给承载页。若在承载页放首页事件监听，会在 Qt 就绪时把 Qt Ability 也关闭；缺少存储方法则会产生 `newLocalStorage not found`、`Need object` 等日志。
 
-文件选择链为 `SourceDocumentView → SandboxService → QtBridge → QtWorkspaceAbility → DocumentStore`。Qt 请求进入 ArkTS 线程处理；结果经 NAPI 投递到 Qt 线程，不跨线程直接操作界面。新 Ability 使用自己的 Context，首页关闭后文件选择仍可继续。DocumentStore 只保留 Picker、URI 授权打开及关闭；日期、格式校验、命名、重名编号、目录创建、复制和失败清理由 C++ `HarmonySandbox` 负责。
+文件选择链为 `SourceDocumentView → SandboxService → QtBridge → QtWorkspaceAbility → DocumentStore`。Qt 请求进入 ArkTS 线程处理；结果经 NAPI 投递到 Qt 线程，不跨线程直接操作界面。新 Ability 使用自己的 Context，首页关闭后文件选择仍可继续。DocumentStore 只保留 Picker、URI 授权打开及关闭；目录、时间戳、命名、最近使用和缓存规则由通用 C++ `SandboxStore` 负责；鸿蒙授权 fd 复制与适配由 `HarmonySandbox` 负责。
 
 仓库中的 `third_party/markitdown` 是固定版本的上游源码，**不会把整个 Git 仓库装进应用**。`pack_python_hnp.sh` 仅把运行所需的 `markitdown/`、`huiwen_converter/`、Python 依赖及其原生 `.so` 放入 HNP 的 `lib/python3.14/site-packages/`，固定命令脚本放在 `share/huiwen/`；HNP 同时包含 Python 解释器。构建 HAP 时，`libhuiwen_native.so`、`libhuiwen_qt.so` 和最小 Qt 运行库进入 HAP，生成的 `huiwen_python.hnp` 也随 HAP 分发。ArkTS 不能直接导入 HNP 内的 Python 函数，必须经应用自己的 NAPI 桥接调用。
 
@@ -124,32 +125,51 @@ HuiWenMCP/
 
 ## 沙箱平台分层
 
-- `SandboxService` 是 Qt 界面的统一入口；`Q_OS_OPENHARMONY` 分支仅引用鸿蒙桥接，桌面头文件及原有逻辑位于独立的 `#else` 分支。
-- `platform/harmony/harmony_sandbox.h/.cpp` 和 `harmony_sandbox_napi.cpp` 以 `harmony_` 命名，只在 `CMAKE_SYSTEM_NAME=OHOS` 时加入原生库；源码由 `Q_OS_OPENHARMONY` 宏保护，不向 Windows/macOS 引入鸿蒙 SDK 类型。后续平台实现应放入各自目录，并通过平台条件选择，避免把规则回填到 ArkTS 或混入通用界面。
-- `harmonyImportDocument(filesDir, name, fd, kind, forConversion)` 返回 `Promise<HarmonySandboxDocument>`；NAPI 同步复制授权 fd，并设置关闭时不继承到子进程，在工作线程使用独立偏移读取、排他创建目标文件、分块复制。调用方的 fd 生命周期及读偏移不受复制影响；成功、失败或排队失败均释放原生 fd，复制失败仅移除本次创建的输入文件。
-- `harmonyValidateOutput(filesDir, path)` 同步校验输出目录归属、规范路径、符号链接实际位置及非空可读 MD。ArkTS 拿到校验后的路径，再使用既有 `fileUri` 和 `openLink` 打开系统文件管理器；旧 `outputs/md/` 与日期目录都兼容。
-- 日期目录与重名分配使用同一份 C++ 规则；并发导入通过路径分配锁与排他文件创建避免覆盖，PDF/MD 导入共用同一接口。首页预览和编辑格式选项暂不发起导入；系统选取取消时不创建沙箱文件。
+- `sandbox/SandboxStore.h/.cpp` 是 Qt Core 通用实现，负责 `preview`、`edit`、`convert` 三类目录、任务命名、最近记录、编辑缓存查询和目录归属校验，不引入 JSON、数据库或额外索引文件。鸿蒙把它编入 `libhuiwen_native.so`，Qt 工作区链接复用；桌面直接编译此实现。
+- `SandboxService` 仍是 Qt 界面入口；鸿蒙通过 ArkTS Picker 获得授权，桌面使用 Qt 选择器。输入统一原子保存，失败只清理本次输入及空任务目录，不覆盖其他任务。
+- `platform/harmony/harmony_sandbox.h/.cpp` 负责鸿蒙 fd 复制；NAPI 同步复制授权 fd 并设置子进程不继承，在工作线程以独立偏移分块读取，成功、失败和排队失败都释放 fd。`harmony_sandbox_napi.cpp` 的目录扫描也在工作线程运行。
+- `harmonyImportDocument(filesDir, name, fd, kind, mode)` 返回 `Promise<HarmonySandboxDocument>`；`mode` 为 `preview`、`edit`、`convert`，取代原有布尔转换标记。支持 PDF、MD/Markdown、Word 导入归档；当前正式转换接口仍仅接 PDF→MD，归档支持 Word 不表示已经接入 Word 预览、编辑或转换。
+- `harmonyValidateOutput(filesDir, path)` 接受新任务的 `convert|edit/<任务>/output/*.md`，兼容历史 `outputs/` 下的文件；仍检查真实路径、目录归属及非空可读 MD。历史数据保留原位，不批量迁移。
 
 ## 沙箱文件路径
 
-当前设备用户号为 `100` 时，应用私有沙箱的预期物理路径如下。程序通过 `getApplicationContext().filesDir` 获取运行时目录，不写死用户号和包路径；设备上的实际映射需在验收时核对。
+鸿蒙根目录取自 `getApplicationContext().filesDir`；Windows/macOS 使用 Qt 的 `AppDataLocation`。设备实际物理映射仍以运行时为准，以下仅展示 `files/` 下的规则：
 
 ```text
-/data/app/el2/100/base/cn.com.HuiWenMCP/
-└── files/
-    ├── inputs/
-    │   └── YYYY-MM-DD/          当天选入的 PDF、MD 副本，保留原名
-    └── outputs/
-        └── YYYY-MM-DD/          当天导入的 PDF 对应的 Markdown
+files/
+├── preview/
+│   └── 20261024_173015_报告/
+│       └── 报告.pdf
+├── edit/
+│   └── 20261024_173015_报告/
+│       ├── input/
+│       │   └── 报告.docx
+│       └── output/
+│           └── 报告.docx
+└── convert/
+    └── 20261024_173015_报告/
+        ├── input/
+        │   └── 报告.pdf
+        └── output/
+            └── 报告.md
 ```
 
-| 入口 | 沙箱路径 | 本阶段行为 |
-| --- | --- | --- |
-| 文档预览 | 暂不导入 | 仅展示 Word、PDF、MD 格式图标，不跳转 |
-| 文档编辑 | 暂不导入 | 仅展示 Word、PDF、MD 格式图标，不跳转 |
-| 文档转化 → PDF→MD | 输入：`files/inputs/YYYY-MM-DD/<原文件名>.pdf`；输出：`files/outputs/YYYY-MM-DD/<原文件名>.md` | 首页打开 Qt；Qt 输入区域选取文件，点击转化后显示 MD 卡片 |
+- 任务目录名使用设备本地时间 `yyyyMMdd_HHmmss_文件名`（不含扩展名）；同秒同名以 ` (2)`、` (3)` 区分，输入输出共用此目录。普通文件名保留原样；非法路径字符拒绝，跨平台文件名特殊字符替换为下划线，过长文件名明确报错；仅目录中的文件名部分按 UTF-8 长度截短。
+- 预览直接保存文件；编辑、转化创建 `input/` 和 `output/`。导入时仅生成输入副本及预定输出路径，输出文件在实际保存或转化时生成。失败重试沿用当前任务目录，重新选取文件创建新目录。
+- 目录名时间表示创建时间，任务目录的修改时间表示最近使用时间。导入完成、PDF 成功打开、转换开始及结束都会显式更新任务目录修改时间；时间写入失败记录 `HUIWEN_SANDBOX stage=touch_failed`，不会把已经成功的转换改判失败。扫描列表和查询缓存本身不更新时间，也不修改目录名。
+- 最近任务只扫描三类目录的一层任务子目录，合并后按 `lastUsedAt`（毫秒时间戳）降序，时间相同时按任务目录名排序。跳过无输入、失效目录、越界符号链接或不可读缓存；旧目录继续支持输出定位，但不伪造旧任务记录。
+- 按文件名查询编辑缓存会返回全部同名候选，按最近使用排序。`openPath` 优先指向已有、可读的 `output/原文件名`，尚无输出时指向 `input/原文件名`；输出已存在但无效时跳过该候选。调用页面可对唯一结果直接打开、多个结果展示选择，成功打开或保存后再标记使用。
 
-系统选择器返回的 URI 只用于读取选中文件；应用内部后续使用沙箱副本路径。转换成功后才生成非空 `.md` 文件并显示路径；文字无法提取的扫描件会提示需要 OCR，不生成空结果。首页只进行功能与格式选择，文件导入和正文预览均由 Qt 工作区处理，PDF 正文由左侧的“预览”按钮进入。点击 MD 卡片沿用原有系统文件管理器跳转；鸿蒙通过 ArkTS 的 `openLink('filemanager://openDirectory')` 传入结果文件 URI。底部继续显示生成的完整 MD 路径，不增加应用内目录窗口，不导出或移动文件。内部路径由应用级 `Context.filesDir` 获取，与模块级 `haps/entry/files` 不同。转换成功前与点击结果时都会校验文件；不存在、为空或不可读取时显示错误。
+| ArkTS 入口（`utils/DocumentStore.ets`） | 用途 |
+| --- | --- |
+| `pickDocumentToSandbox(context, kind, DocumentMode.Preview|Edit|Convert)` | 系统选取、授权读取并按类型归档；取消不创建任务 |
+| `getRecentDocuments(context, limit = 5, mode = 'all')` | 后台读取最近任务，数量为 1–100；可筛选任一类型 |
+| `findEditCaches(context, name)` | 按原文件名查找所有同名编辑缓存，返回候选与 `openPath` |
+| `markDocumentUsed(context, taskPath)` | 未来预览/编辑页面在实际打开或保存后更新时间 |
+
+这些接口通过 NAPI 调用同一份 `SandboxStore`，返回名称、格式、模式、`taskPath`、`inputPath`、`outputPath`、`openPath` 和 `lastUsedAt`。Qt 侧可直接使用 `SandboxStore::recentDocuments()`、`findEditDocuments()`、`markUsed()`。本阶段提供目录与接口，首页最近任务列表、同名候选选择 UI 和独立编辑工作区尚未接入；首页预览和编辑仍只展示格式选项。
+
+当前 Qt PDF→MD 选择链改为传递 `DocumentMode.Convert`，使用 `convert/<任务>/input` 与 `output`。转换成功才展示 MD 卡片，扫描件仍按原有错误提示处理；Python 继续接收具体输入、输出路径。点击 MD 卡片仍通过 `openLink('filemanager://openDirectory')` 传入校验后的结果 URI，打开真实输出目录，不创建应用内文件浏览器。
 
 ## 应用图标
 
@@ -276,9 +296,9 @@ hvigorw assembleHap --mode module -p product=default -p module=entry@default
 4. 点击“转化”，操作期间不能重复选择或提交。成功后右侧显示 MD 占位图和输出文件名，底部显示 `code=0`、成功提示和完整路径；失败显示错误码及处理建议，按钮变为“重新转化”。重试期间禁用按钮，成功后恢复“转化”；更换文件恢复初始状态，取消选择保留原状态。
 5. 转换成功后底部显示完整 MD 路径；点击 MD 卡片，沿用系统文件管理器打开文件夹，文件夹内能看到真实 MD。不存在、为空或不可读取的结果应在跳转前明确报错，不能误报转换成功。
 6. 日志搜索 `HUIWEN_OUTPUT`：`import_success` 为导入落盘路径，`convert_start` 为输入/输出路径，`verified` 为磁盘验证及字节数，`convert_success` 为成功通知，`locate_start` 为点击时重新检查，`locate_requested` 为鸿蒙桥接已提交。系统跳转结果继续查看原有 `HUIWEN_QT_OPEN_REQUEST`、`HUIWEN_QT_OPEN_REQUEST_ACCEPTED` 或 `HUIWEN_QT_OPEN_FAILED`。
-7. 新导入按本地日期归档，例如 `inputs/2026-10-20/中文 报告.pdf`、`outputs/2026-10-20/中文 报告.md`，不再追加随机串。同一天同名输入或输出已存在时，两者统一追加 ` (2)`、` (3)`，避免覆盖；同一次导入后再次转换仍更新当前结果。日期在导入时确定；历史目录及文件保留，旧 `outputs/md/` 仍支持原有文件管理器跳转。Markdown 导入同样归入当天 `inputs/` 目录。
+7. 新导入生成 `convert/yyyyMMdd_HHmmss_文件名/input/原文件.pdf` 与 `output/原文件.md`；同秒同名只对任务目录追加编号，文件名保持一致。检查成功预览、转换开始及结束后任务目录修改时间会更新；同一任务重试路径不变。历史 `outputs/md/` 和日期目录继续支持原有文件管理器跳转。预览和编辑归档、最近查询、同名缓存查找的接口见“沙箱文件路径”，首页列表本阶段不接入。
 
-Python 固定入口在 stdout 最后一行返回 `HUIWEN_CONVERT_RESULT {"code":0,"message":"转化成功，Markdown 文件已生成。","outputPath":"/沙箱/outputs/日期/文件.md"}`。失败时 `code` 非零、`outputPath` 为空、进程退出码为 1；详细异常写入日志，界面展示中文原因和处理建议。C++ 独立保存完整结果行，日志尾部缓存仍限制为 4096 字节，结果不受日志截断影响。成功仍保留 `HUIWEN_CONVERT_OK` 标记，原 ArkTS 接口继续成功返回路径、失败拒绝 Promise。
+Python 固定入口在 stdout 最后一行返回 `HUIWEN_CONVERT_RESULT {"code":0,"message":"转化成功，Markdown 文件已生成。","outputPath":"/沙箱/convert/时间戳_文件名/output/文件.md"}`。失败时 `code` 非零、`outputPath` 为空、进程退出码为 1；详细异常写入日志，界面展示中文原因和处理建议。C++ 独立保存完整结果行，日志尾部缓存仍限制为 4096 字节，结果不受日志截断影响。成功仍保留 `HUIWEN_CONVERT_OK` 标记，原 ArkTS 接口继续成功返回路径、失败拒绝 Promise。
 
 错误码：`1001` 参数或格式错误，`1002` 输入不存在，`1003` 加密或禁止提取，`1004` PDF 损坏或不支持，`1005` 无可提取文字（暂不支持 OCR），`1006` 读写权限不足，`1007` 存储不足，`1008` 组件缺失，`1099` 其他转换异常；`2001` 原生进程或结果协议异常，`2002` 输出文件校验失败。C++ 同时验证字段类型、退出码、预期输出路径及真实非空文件，不能仅凭成功字段通知界面。
 

@@ -57,7 +57,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "OHOS")
                 "${project_root}/entry/libs/arm64-v8a/$<TARGET_FILE_NAME:huiwen_qt>"
         COMMENT "同步 huiwen_qt 动态库到 entry/libs/arm64-v8a")
 else()
-    add_executable(huiwen_qt ${workspace_sources})
+    # 桌面直接编译通用沙箱规则，不引入鸿蒙 fd/NAPI 适配层。
+    add_executable(huiwen_qt ${workspace_sources} src/sandbox/SandboxStore.cpp)
 endif()
 target_include_directories(huiwen_qt PRIVATE src ../entry/src/main/cpp)
 # 工作区使用 PDFium 的公开 C API；桌面构建需指定匹配宿主架构的库。

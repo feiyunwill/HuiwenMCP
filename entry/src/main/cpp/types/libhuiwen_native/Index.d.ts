@@ -1,7 +1,13 @@
 // ArkTS 调用 libhuiwen_native.so 时使用的类型声明。
 export interface HarmonySandboxDocument {
+  name: string;
+  kind: string;
+  mode: string;
+  taskPath: string;
   inputPath: string;
   outputPath: string;
+  openPath: string;
+  lastUsedAt: number;
 }
 
 interface HuiwenNative {
@@ -10,8 +16,14 @@ interface HuiwenNative {
   // 异步把沙箱 PDF 写成 MD；成功返回输出路径，失败拒绝 Promise。
   convertPdf(inputPath: string, outputPath: string): Promise<string>;
   harmonyImportDocument(filesDir: string, name: string, fd: number, kind: string,
-    forConversion: boolean): Promise<HarmonySandboxDocument>;
+    mode: string): Promise<HarmonySandboxDocument>;
   harmonyValidateOutput(filesDir: string, path: string): string;
+  // 后台读取三类目录，以最近使用时间降序返回；mode 为 all/preview/edit/convert。
+  harmonyRecentDocuments(filesDir: string, mode: string, limit: number): Promise<HarmonySandboxDocument[]>;
+  // 返回所有同名编辑缓存，openPath 优先指向已有 output，查询本身不修改时间。
+  harmonyFindEditCaches(filesDir: string, name: string): Promise<HarmonySandboxDocument[]>;
+  // 实际打开、保存或转换后显式更新任务目录修改时间。
+  harmonyMarkUsed(filesDir: string, path: string): void;
   // 新 Qt Ability 注册事件；回调在 ArkTS 线程处理选择、打开位置和窗口就绪。
   registerWorkspace(callback: (event: string) => void): void;
   clearWorkspace(): void;

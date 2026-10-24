@@ -21,7 +21,9 @@ set(workspace_root "${CMAKE_CURRENT_SOURCE_DIR}/../../../../qt_app")
 add_library(huiwen_native SHARED napi_bridge.cpp python_runner.cpp
             "${workspace_root}/src/platform/harmony/qt_bridge.cpp")
 if(CMAKE_SYSTEM_NAME STREQUAL "OHOS")
+    # 通用目录规则进入 NAPI 库，Qt 工作区复用同一份实现。
     target_sources(huiwen_native PRIVATE
+        "${workspace_root}/src/sandbox/SandboxStore.cpp"
         "${workspace_root}/src/platform/harmony/harmony_sandbox.cpp"
         "${workspace_root}/src/platform/harmony/harmony_sandbox_napi.cpp")
 endif()

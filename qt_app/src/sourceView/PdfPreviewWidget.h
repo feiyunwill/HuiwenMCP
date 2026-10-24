@@ -27,6 +27,9 @@ class PdfPreviewWidget : public QAbstractScrollArea
     ~PdfPreviewWidget() override;
     void setDocument(const QString &path);
 
+  signals:
+    void documentOpened(const QString &path);
+
   protected:
     void paintEvent(QPaintEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;

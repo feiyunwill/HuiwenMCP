@@ -17,6 +17,7 @@ class SourceDocumentView : public QWidget
     void setBusy(bool busy);
   signals:
     void selectionRequested();
+    void documentOpened();
 
   private:
     FileCard *card_;

@@ -147,6 +147,7 @@ PdfPreviewWidget::PdfPreviewWidget(QWidget *parent) : QAbstractScrollArea(parent
                         message_.clear();
                         pageSizes_ = result.pageSizes;
                         layoutPages();
+                        emit documentOpened(path_);
                     }
                     else if (result.image.size() == renderSize(result.page) &&
                              qFuzzyCompare(result.image.devicePixelRatio(),
@@ -171,7 +172,11 @@ PdfPreviewWidget::~PdfPreviewWidget()
 void PdfPreviewWidget::setDocument(const QString &path)
 {
     if (path_ == path)
+    {
+        if (!path.isEmpty() && !pageSizes_.isEmpty())
+            emit documentOpened(path_);
         return;
+    }
     ++generation_;
     path_ = path;
     layoutError_.clear();

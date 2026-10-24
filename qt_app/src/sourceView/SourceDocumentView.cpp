@@ -43,6 +43,12 @@ SourceDocumentView::SourceDocumentView(QWidget *parent)
     setDocuments({});
     connect(card_, &QPushButton::clicked, this, &SourceDocumentView::selectionRequested);
     connect(replaceButton_, &QPushButton::clicked, this, &SourceDocumentView::selectionRequested);
+    connect(preview_, &PdfPreviewWidget::documentOpened, this,
+            [this](const QString &path)
+            {
+                if (path == inputPath_)
+                    emit documentOpened();
+            });
     connect(previewButton_, &QPushButton::clicked, this,
             [this]
             {

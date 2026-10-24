@@ -1,19 +1,22 @@
 /* 沙箱服务实现：鸿蒙异步请求 ArkTS；桌面使用 Qt 选择器及应用数据目录。 */
 #include "SandboxService.h"
+#include "SandboxStore.h"
+#include <QDateTime>
 #include <QDebug>
+#include <exception>
 #ifdef Q_OS_OPENHARMONY
 #include <QJsonDocument>
 #include <QJsonObject>
 #include "platform/harmony/qt_bridge.h"
 #else
 #include <QDesktopServices>
-#include <QDir>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QStandardPaths>
+#include <QSaveFile>
 #include <QUrl>
-#include <QUuid>
+#include <stdexcept>
 #endif
 
 SandboxService::SandboxService(QObject *parent) : QObject(parent)
@@ -27,9 +30,12 @@ SandboxService::SandboxService(QObject *parent) : QObject(parent)
                 if (action == "pick")
                 {
                     if (!result.value("inputPath").toString().isEmpty())
-                        emit documentSelected({"pdf", result.value("name").toString(),
-                                               result.value("inputPath").toString(),
-                                               result.value("outputPath").toString()});
+                        emit documentSelected(
+                            {result.value("kind").toString(), result.value("name").toString(),
+                             result.value("inputPath").toString(), result.value("outputPath").toString(),
+                             result.value("taskPath").toString(), result.value("mode").toString(),
+                             static_cast<qint64>(result.value("lastUsedAt").toDouble()),
+                             result.value("openPath").toString()});
                     emit selectionFinished();
                 }
                 if (!result.value("error").toString().isEmpty())
@@ -51,18 +57,50 @@ void SandboxService::selectPdf()
         QFileDialog::getOpenFileName(nullptr, QStringLiteral("请选择 PDF"), {}, "PDF (*.pdf)");
     if (!file.isEmpty())
     {
-        const QString root = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        const QString id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-        const QString input = root + "/inputs/pdf/" + id + ".pdf";
-        const QString output = root + "/outputs/md/" + QFileInfo(file).completeBaseName() + "-" + id + ".md";
-        if (QDir().mkpath(QFileInfo(input).absolutePath()) &&
-            QDir().mkpath(QFileInfo(output).absolutePath()) && QFile::copy(file, input))
-            emit documentSelected({"pdf", QFileInfo(file).fileName(), input, output});
-        else
-            emit failed(QStringLiteral("复制 PDF 到应用数据目录失败"));
+        DocumentItem document;
+        try
+        {
+            const QString root = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+            document = SandboxStore::createDocument(root, QFileInfo(file).fileName(), "pdf", "convert");
+            QFile source(file);
+            QSaveFile target(document.inputPath);
+            if (!source.open(QIODevice::ReadOnly) || !target.open(QIODevice::WriteOnly))
+                throw std::runtime_error("无法打开 PDF 或沙箱副本");
+            while (!source.atEnd())
+            {
+                const auto bytes = source.read(64 * 1024);
+                if (source.error() != QFileDevice::NoError || target.write(bytes) != bytes.size())
+                    throw std::runtime_error("复制 PDF 到应用数据目录失败");
+            }
+            if (!target.commit())
+                throw std::runtime_error("保存沙箱 PDF 失败");
+            markUsed(document);
+            document.lastUsedAt = QFileInfo(document.taskPath).lastModified().toMSecsSinceEpoch();
+            emit documentSelected(document);
+        }
+        catch (const std::exception &error)
+        {
+            if (!document.taskPath.isEmpty())
+                SandboxStore::discardDocument(document);
+            emit failed(QString::fromUtf8(error.what()));
+        }
     }
     emit selectionFinished();
 #endif
+}
+
+void SandboxService::markUsed(const DocumentItem &document)
+{
+    try
+    {
+        SandboxStore::markUsed(document);
+    }
+    catch (const std::exception &error)
+    {
+        // 时间更新失败不能把已完成的转换改判失败，保留可定位日志。
+        qWarning().noquote() << "HUIWEN_SANDBOX stage=touch_failed task=" << document.taskPath
+                             << error.what();
+    }
 }
 
 void SandboxService::openResultLocation(const QString &path)

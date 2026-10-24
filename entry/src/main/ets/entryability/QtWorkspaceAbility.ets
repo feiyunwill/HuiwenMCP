@@ -5,8 +5,8 @@ import { window } from '@kit.ArkUI';
 import { fileUri } from '@kit.CoreFileKit';
 import hilog from '@ohos.hilog';
 import qpa from 'libplugins_platforms_qopenharmony.so';
-import nativeBridge from 'libhuiwen_native.so';
-import { DocumentKind, pickDocumentToSandbox } from '../utils/DocumentStore';
+import nativeBridge, { HarmonySandboxDocument } from 'libhuiwen_native.so';
+import { DocumentKind, DocumentMode, pickDocumentToSandbox } from '../utils/DocumentStore';
 import { CefWorkspaceProxy } from '../utils/CefPlatform';
 
 interface WorkspaceEvent {
@@ -14,11 +14,8 @@ interface WorkspaceEvent {
   path: string;
 }
 
-interface WorkspaceReply {
+interface WorkspaceReply extends HarmonySandboxDocument {
   action: string;
-  name: string;
-  inputPath: string;
-  outputPath: string;
   error: string;
 }
 
@@ -66,18 +63,26 @@ export default class QtWorkspaceAbility extends UIAbility {
       await this.context.terminateSelf();
       return;
     }
-    const reply: WorkspaceReply = { action: event.action, name: '', inputPath: '', outputPath: '', error: '' };
+    const reply: WorkspaceReply = {
+      action: event.action, name: '', kind: '', mode: '', taskPath: '', inputPath: '',
+      outputPath: '', openPath: '', lastUsedAt: 0, error: ''
+    };
     if (event.action === 'pick' && this.pickerBusy) {
       return;
     }
     try {
       if (event.action === 'pick') {
         this.pickerBusy = true;
-        const document = await pickDocumentToSandbox(this.context, DocumentKind.PDF, true);
+        const document = await pickDocumentToSandbox(this.context, DocumentKind.PDF, DocumentMode.Convert);
         if (document !== null) {
           reply.name = document.name;
           reply.inputPath = document.inputPath;
           reply.outputPath = document.outputPath;
+          reply.kind = document.kind;
+          reply.mode = document.mode;
+          reply.taskPath = document.taskPath;
+          reply.openPath = document.openPath;
+          reply.lastUsedAt = document.lastUsedAt;
           hilog.info(0xFF00, 'QtWorkspace', 'HUIWEN_QT_PICK_OK');
         }
       } else if (event.action === 'open') {

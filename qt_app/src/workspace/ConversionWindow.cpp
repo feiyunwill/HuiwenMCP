@@ -82,6 +82,11 @@ ConversionWindow::ConversionWindow(QWidget *parent)
                 refreshBusyState();
             });
     connect(sandbox_, &SandboxService::failed, status_, &QLabel::setText);
+    connect(source_, &SourceDocumentView::documentOpened, this,
+            [this]
+            {
+                sandbox_->markUsed(document_);
+            });
     connect(result_, &MarkdownResultView::locationRequested, sandbox_, &SandboxService::openResultLocation);
     // 按钮独立接入转换服务，区域之间不互相调用。
     connect(button_, &QPushButton::clicked, this,
@@ -91,6 +96,7 @@ ConversionWindow::ConversionWindow(QWidget *parent)
                 refreshBusyState();
                 result_->setResultFile({});
                 status_->setText(QStringLiteral("正在转化 PDF…"));
+                sandbox_->markUsed(document_);
                 conversion_->convertPdfToMd(document_.inputPath, document_.outputPath);
             });
     connect(conversion_, &ConversionService::succeeded, this,
@@ -98,6 +104,7 @@ ConversionWindow::ConversionWindow(QWidget *parent)
             {
                 converting_ = false;
                 retry_ = false;
+                sandbox_->markUsed(document_);
                 result_->setResultFile(path);
                 status_->setText(QStringLiteral("[code=0] %1 路径：%2").arg(message, path));
                 refreshBusyState();
@@ -107,6 +114,7 @@ ConversionWindow::ConversionWindow(QWidget *parent)
             {
                 converting_ = false;
                 retry_ = true;
+                sandbox_->markUsed(document_);
                 status_->setText(QStringLiteral("[code=%1] %2").arg(code).arg(message));
                 refreshBusyState();
             });
