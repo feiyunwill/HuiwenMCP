@@ -7,4 +7,5 @@ class ConvertButton : public QPushButton
   public:
     explicit ConvertButton(QWidget *parent = nullptr);
     void setState(bool hasDocument, bool busy, bool retry = false);
+    void raiseAbovePreview();
 };

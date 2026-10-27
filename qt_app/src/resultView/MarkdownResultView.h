@@ -12,7 +12,6 @@ class MarkdownResultView : public QWidget
   public:
     explicit MarkdownResultView(QWidget *parent = nullptr);
     void setResultFile(const QString &path);
-    void setPreviewBottomInset(int inset);
     bool isPreviewReady() const;
     void setScrollPosition(int page, double fraction, double progress);
   signals:

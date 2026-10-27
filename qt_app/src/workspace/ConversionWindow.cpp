@@ -1,12 +1,12 @@
 /* 转换工作区：左右独立区域、可拖动分隔线，以及跟随分隔线的悬浮转化按钮。 */
 #include "ConversionWindow.h"
 #include "components/ConvertButton.h"
+#include "components/functionBar/FunctionBar.h"
 #include "resultView/MarkdownResultView.h"
 #include "sandbox/SandboxService.h"
 #include "services/ConversionService.h"
 #include "sourceView/SourceDocumentView.h"
 #include <QCheckBox>
-#include <QHBoxLayout>
 #include <QLabel>
 #include <QResizeEvent>
 #include <QSizePolicy>
@@ -40,11 +40,9 @@ ConversionWindow::ConversionWindow(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    auto *options = new QHBoxLayout;
-    options->setContentsMargins(24, 8, 24, 0);
-    options->addStretch();
-    options->addWidget(scrollSync_);
-    layout->addLayout(options);
+    layout->addWidget(new FunctionBar(this));
+    // 新菜单本阶段只展示；旧控件隐藏并保留原有同步行为，后续接入设置时再替换。
+    scrollSync_->hide();
     scrollSync_->setChecked(true);
     scrollSync_->setEnabled(false);
     scrollSync_->setToolTip(QStringLiteral("两侧预览就绪后，按原 PDF 页码同步；无页码时按总进度同步"));
@@ -65,7 +63,12 @@ ConversionWindow::ConversionWindow(QWidget *parent)
     layout->addWidget(status_, 0);
     connect(splitter_, &QSplitter::splitterMoved, this, [this] { placeConvertButton(); });
     connect(source_, &SourceDocumentView::previewReadyChanged, this, [this] { refreshScrollSync(); });
-    connect(result_, &MarkdownResultView::previewReadyChanged, this, [this] { refreshScrollSync(); });
+    connect(result_, &MarkdownResultView::previewReadyChanged, this,
+            [this]
+            {
+                refreshScrollSync();
+                placeConvertButton();
+            });
     connect(scrollSync_, &QCheckBox::toggled, this, [this] { refreshScrollSync(); });
     connect(source_, &SourceDocumentView::scrollPositionChanged, this,
             [this](int page, double fraction, double progress)
@@ -158,10 +161,7 @@ void ConversionWindow::placeConvertButton()
     const QPoint center = splitter_->handle(1)->mapTo(this, splitter_->handle(1)->rect().center());
     button_->move(center.x() - button_->width() / 2,
                   splitter_->mapTo(this, QPoint(0, splitter_->height())).y() - button_->height() - 72);
-    // CEF 是原生子节点，只保留按钮所需的避让高度，不再添加外围遮挡层。
-    const int resultBottom = result_->mapTo(this, QPoint(0, result_->height())).y();
-    result_->setPreviewBottomInset(qMax(0, resultBottom - button_->geometry().top()));
-    button_->raise();
+    button_->raiseAbovePreview();
 }
 
 void ConversionWindow::refreshBusyState()

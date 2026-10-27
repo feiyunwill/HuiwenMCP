@@ -81,8 +81,6 @@ void MarkdownResultView::setResultFile(const QString &path)
     }
 }
 
-void MarkdownResultView::setPreviewBottomInset(int inset) { preview_->setBottomInset(inset); }
-
 bool MarkdownResultView::isPreviewReady() const { return preview_->isPreviewReady(); }
 
 void MarkdownResultView::setScrollPosition(int page, double fraction, double progress)

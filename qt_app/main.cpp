@@ -10,6 +10,10 @@
 
 int main(int argc, char *argv[])
 {
+#ifdef Q_OS_OPENHARMONY
+    // 只让悬浮按钮创建原生子节点，避免连带提升左右文档区域的层级。
+    QApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
+#endif
     QApplication app(argc, argv);
     app.setApplicationName("HuiwenMCP");
     app.setApplicationDisplayName(QStringLiteral("汇文MCP"));

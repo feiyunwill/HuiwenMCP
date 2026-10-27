@@ -354,7 +354,6 @@ class MarkdownPreviewWidget::Private
     bool ready = false;
     bool active = true;
     int generation = 0;
-    int bottomInset = 0;
 #ifdef Q_OS_OPENHARMONY
     CefRefPtr<PreviewClient> client;
 #endif
@@ -554,13 +553,7 @@ void MarkdownPreviewWidget::syncGeometry()
 
 QRect MarkdownPreviewWidget::browserRect() const
 {
-    return QRect(mapTo(window(), QPoint(0, 0)), QSize(width(), qMax(0, height() - d_->bottomInset)));
-}
-
-void MarkdownPreviewWidget::setBottomInset(int inset)
-{
-    d_->bottomInset = qMax(0, inset);
-    syncGeometry();
+    return QRect(mapTo(window(), QPoint(0, 0)), size());
 }
 
 void MarkdownPreviewWidget::showEvent(QShowEvent *event)
