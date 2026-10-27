@@ -17,7 +17,7 @@
 
 ConversionWindow::ConversionWindow(QWidget *parent)
     : QWidget(parent), splitter_(new QSplitter(Qt::Horizontal, this)), source_(new SourceDocumentView),
-      result_(new MarkdownResultView), button_(new ConvertButton(this)), buttonBackdrop_(new QWidget(this)),
+      result_(new MarkdownResultView), button_(new ConvertButton(this)),
       conversion_(new ConversionService(this)), sandbox_(new SandboxService(this)), status_(new QLabel(this)),
       scrollSync_(new QCheckBox(QStringLiteral("同步滚动"), this))
 {
@@ -26,23 +26,17 @@ ConversionWindow::ConversionWindow(QWidget *parent)
     setAutoFillBackground(true);
     QPalette colors = palette();
     colors.setColor(QPalette::Window, QColor("#F5F7FB"));
-    // 滚动区域默认使用 Base，和窗口及按钮遮罩统一为同一种背景色。
+    // 滚动区域默认使用 Base，和窗口统一为同一种背景色。
     colors.setColor(QPalette::Base, colors.color(QPalette::Window));
     setPalette(colors);
     setObjectName(QStringLiteral("conversionWindow"));
     setAttribute(Qt::WA_StyledBackground);
-    buttonBackdrop_->setObjectName(QStringLiteral("conversionButtonBackdrop"));
-    buttonBackdrop_->setAttribute(Qt::WA_StyledBackground);
     // 显式指定所有可见背景，避免平台样式为滚动内容另行填充默认颜色。
-    setStyleSheet(QStringLiteral(
-        "QWidget#conversionWindow, QWidget#conversionButtonBackdrop, "
-        "QWidget#sourceDocumentBackground, QWidget#resultDocumentBackground, "
-        "QWidget#sourceDocumentViewport, QWidget#resultDocumentViewport "
-        "{ background-color: %1; }").arg(colors.color(QPalette::Window).name()));
-    // 遮住按钮圆角及上下留白处的分割线，按钮始终位于遮挡层上方。
-    buttonBackdrop_->setAutoFillBackground(true);
-    buttonBackdrop_->setPalette(colors);
-    buttonBackdrop_->setAttribute(Qt::WA_TransparentForMouseEvents);
+    setStyleSheet(QStringLiteral("QWidget#conversionWindow, "
+                                 "QWidget#sourceDocumentBackground, QWidget#resultDocumentBackground, "
+                                 "QWidget#sourceDocumentViewport, QWidget#resultDocumentViewport "
+                                 "{ background-color: %1; }")
+                      .arg(colors.color(QPalette::Window).name()));
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
@@ -164,11 +158,9 @@ void ConversionWindow::placeConvertButton()
     const QPoint center = splitter_->handle(1)->mapTo(this, splitter_->handle(1)->rect().center());
     button_->move(center.x() - button_->width() / 2,
                   splitter_->mapTo(this, QPoint(0, splitter_->height())).y() - button_->height() - 72);
-    buttonBackdrop_->setGeometry(button_->geometry().adjusted(-2, -32, 2, 32));
-    // CEF 是原生子节点，预览区域避开悬浮按钮，避免盖住 Qt 绘制的按钮和遮罩。
+    // CEF 是原生子节点，只保留按钮所需的避让高度，不再添加外围遮挡层。
     const int resultBottom = result_->mapTo(this, QPoint(0, result_->height())).y();
-    result_->setPreviewBottomInset(qMax(0, resultBottom - buttonBackdrop_->geometry().top()));
-    buttonBackdrop_->raise();
+    result_->setPreviewBottomInset(qMax(0, resultBottom - button_->geometry().top()));
     button_->raise();
 }
 

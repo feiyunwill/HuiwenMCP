@@ -28,7 +28,6 @@ class ConversionWindow : public QWidget
     SourceDocumentView *source_;
     MarkdownResultView *result_;
     ConvertButton *button_;
-    QWidget *buttonBackdrop_;
     ConversionService *conversion_;
     SandboxService *sandbox_;
     QLabel *status_;
