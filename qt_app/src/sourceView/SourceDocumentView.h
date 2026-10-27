@@ -15,9 +15,14 @@ class SourceDocumentView : public QWidget
     explicit SourceDocumentView(QWidget *parent = nullptr);
     void setDocuments(const QVector<DocumentItem> &documents);
     void setBusy(bool busy);
+    bool isPreviewReady() const;
+    void setScrollPosition(int page, double fraction, double progress);
+    void publishScrollPosition();
   signals:
     void selectionRequested();
     void documentOpened();
+    void previewReadyChanged(bool ready);
+    void scrollPositionChanged(int page, double fraction, double progress);
 
   private:
     FileCard *card_;

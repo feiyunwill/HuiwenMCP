@@ -5,6 +5,8 @@
 #include "sandbox/SandboxService.h"
 #include "services/ConversionService.h"
 #include "sourceView/SourceDocumentView.h"
+#include <QCheckBox>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QResizeEvent>
 #include <QSizePolicy>
@@ -16,7 +18,8 @@
 ConversionWindow::ConversionWindow(QWidget *parent)
     : QWidget(parent), splitter_(new QSplitter(Qt::Horizontal, this)), source_(new SourceDocumentView),
       result_(new MarkdownResultView), button_(new ConvertButton(this)), buttonBackdrop_(new QWidget(this)),
-      conversion_(new ConversionService(this)), sandbox_(new SandboxService(this)), status_(new QLabel(this))
+      conversion_(new ConversionService(this)), sandbox_(new SandboxService(this)), status_(new QLabel(this)),
+      scrollSync_(new QCheckBox(QStringLiteral("同步滚动"), this))
 {
     setWindowTitle(QStringLiteral("汇文MCP · 转换工作区"));
     setMinimumSize(640, 480);
@@ -43,6 +46,14 @@ ConversionWindow::ConversionWindow(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
+    auto *options = new QHBoxLayout;
+    options->setContentsMargins(24, 8, 24, 0);
+    options->addStretch();
+    options->addWidget(scrollSync_);
+    layout->addLayout(options);
+    scrollSync_->setChecked(true);
+    scrollSync_->setEnabled(false);
+    scrollSync_->setToolTip(QStringLiteral("两侧预览就绪后，按原 PDF 页码同步；无页码时按总进度同步"));
     splitter_->addWidget(source_);
     splitter_->addWidget(result_);
     splitter_->setChildrenCollapsible(false);
@@ -59,6 +70,21 @@ ConversionWindow::ConversionWindow(QWidget *parent)
     status_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     layout->addWidget(status_, 0);
     connect(splitter_, &QSplitter::splitterMoved, this, [this] { placeConvertButton(); });
+    connect(source_, &SourceDocumentView::previewReadyChanged, this, [this] { refreshScrollSync(); });
+    connect(result_, &MarkdownResultView::previewReadyChanged, this, [this] { refreshScrollSync(); });
+    connect(scrollSync_, &QCheckBox::toggled, this, [this] { refreshScrollSync(); });
+    connect(source_, &SourceDocumentView::scrollPositionChanged, this,
+            [this](int page, double fraction, double progress)
+            {
+                if (scrollSync_->isEnabled() && scrollSync_->isChecked())
+                    result_->setScrollPosition(page, fraction, progress);
+            });
+    connect(result_, &MarkdownResultView::scrollPositionChanged, this,
+            [this](int page, double fraction, double progress)
+            {
+                if (scrollSync_->isEnabled() && scrollSync_->isChecked())
+                    source_->setScrollPosition(page, fraction, progress);
+            });
     connect(source_, &SourceDocumentView::selectionRequested, this,
             [this]
             {
@@ -151,4 +177,12 @@ void ConversionWindow::refreshBusyState()
     source_->setBusy(picking_ || converting_);
     button_->setState(!document_.inputPath.isEmpty(), picking_ || converting_, retry_);
     placeConvertButton();
+}
+
+void ConversionWindow::refreshScrollSync()
+{
+    const bool ready = source_->isPreviewReady() && result_->isPreviewReady();
+    scrollSync_->setEnabled(ready);
+    if (ready && scrollSync_->isChecked())
+        source_->publishScrollPosition();
 }

@@ -43,6 +43,10 @@ MarkdownResultView::MarkdownResultView(QWidget *parent)
     setMinimumWidth(260);
     setResultFile({});
     connect(card_, &QPushButton::clicked, this, [this] { emit locationRequested(path_); });
+    connect(preview_, &MarkdownPreviewWidget::previewReadyChanged, this,
+            &MarkdownResultView::previewReadyChanged);
+    connect(preview_, &MarkdownPreviewWidget::scrollPositionChanged, this,
+            &MarkdownResultView::scrollPositionChanged);
     connect(openButton, &QPushButton::clicked, this, [this] { emit locationRequested(path_); });
     connect(previewButton_, &QPushButton::clicked, this,
             [this]
@@ -78,3 +82,10 @@ void MarkdownResultView::setResultFile(const QString &path)
 }
 
 void MarkdownResultView::setPreviewBottomInset(int inset) { preview_->setBottomInset(inset); }
+
+bool MarkdownResultView::isPreviewReady() const { return preview_->isPreviewReady(); }
+
+void MarkdownResultView::setScrollPosition(int page, double fraction, double progress)
+{
+    preview_->setScrollPosition(page, fraction, progress);
+}

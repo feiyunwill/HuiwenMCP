@@ -2,11 +2,13 @@
 #include "PdfPreviewWidget.h"
 #include <fpdfview.h>
 #include <QFile>
+#include <QHideEvent>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QPainter>
 #include <QResizeEvent>
 #include <QScrollBar>
+#include <QScopedValueRollback>
 #include <QShowEvent>
 #include <QtConcurrent>
 #include <algorithm>
@@ -129,11 +131,16 @@ PdfPreviewWidget::PdfPreviewWidget(QWidget *parent) : QAbstractScrollArea(parent
     setFrameShape(QFrame::NoFrame);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+    // 滚动值按逻辑像素计量，Qt 默认的单步 1 不适合文档阅读。
+    verticalScrollBar()->setSingleStep(40);
     viewport()->setBackgroundRole(QPalette::Window);
     setAccessibleName(QStringLiteral("PDF 正文预览"));
     resizeTimer_.setSingleShot(true);
     resizeTimer_.setInterval(150);
     connect(&resizeTimer_, &QTimer::timeout, this, &PdfPreviewWidget::requestRender);
+    scrollReportTimer_.setSingleShot(true);
+    scrollReportTimer_.setInterval(16);
+    connect(&scrollReportTimer_, &QTimer::timeout, this, &PdfPreviewWidget::publishScrollPosition);
     connect(&watcher_, &QFutureWatcherBase::finished, this,
             [this]
             {
@@ -141,13 +148,17 @@ PdfPreviewWidget::PdfPreviewWidget(QWidget *parent) : QAbstractScrollArea(parent
                 if (result.generation == generation_)
                 {
                     if (!result.error.isEmpty())
+                    {
                         message_ = result.error;
+                        emit previewReadyChanged(false);
+                    }
                     else if (result.page < 0)
                     {
                         message_.clear();
                         pageSizes_ = result.pageSizes;
                         layoutPages();
                         emit documentOpened(path_);
+                        emit previewReadyChanged(isPreviewReady());
                     }
                     else if (result.image.size() == renderSize(result.page) &&
                              qFuzzyCompare(result.image.devicePixelRatio(),
@@ -178,6 +189,8 @@ void PdfPreviewWidget::setDocument(const QString &path)
         return;
     }
     ++generation_;
+    QScopedValueRollback<bool> applying(applyingScroll_, true);
+    scrollReportTimer_.stop();
     path_ = path;
     layoutError_.clear();
     pageSizes_.clear();
@@ -186,12 +199,44 @@ void PdfPreviewWidget::setDocument(const QString &path)
     document_.reset();
     resizeTimer_.stop();
     verticalScrollBar()->setRange(0, 0);
+    emit previewReadyChanged(false);
     loadPending_ = !path.isEmpty();
     message_ = loadPending_ ? QStringLiteral("正在打开 PDF…") : QString();
     if (loadPending_)
         document_ = std::make_shared<PdfPreviewDocument>();
     viewport()->update();
     requestRender();
+}
+
+bool PdfPreviewWidget::isPreviewReady() const
+{
+    return isVisible() && !pageRects_.isEmpty() && message_.isEmpty() && layoutError_.isEmpty();
+}
+
+void PdfPreviewWidget::publishScrollPosition()
+{
+    scrollReportTimer_.stop();
+    if (!isPreviewReady() || applyingScroll_)
+        return;
+    const int page = qMin(firstVisiblePage(), pageRects_.size() - 1);
+    const auto &rect = pageRects_[page];
+    const auto *bar = verticalScrollBar();
+    const double fraction = qBound(0.0, (bar->value() - rect.top()) / rect.height(), 1.0);
+    const double progress = bar->maximum() ? double(bar->value()) / bar->maximum() : 0;
+    emit scrollPositionChanged(page + 1, fraction, progress);
+}
+
+void PdfPreviewWidget::setScrollPosition(int page, double fraction, double progress)
+{
+    if (!isPreviewReady() || !std::isfinite(fraction) || !std::isfinite(progress))
+        return;
+    scrollReportTimer_.stop();
+    QScopedValueRollback<bool> applying(applyingScroll_, true);
+    const int maximum = verticalScrollBar()->maximum();
+    double target = qBound(0.0, progress, 1.0) * maximum;
+    if (page > 0 && page <= pageRects_.size() && progress > 0 && progress < 1)
+        target = pageRects_[page - 1].top() + qBound(0.0, fraction, 1.0) * pageRects_[page - 1].height();
+    verticalScrollBar()->setValue(qRound(qBound(0.0, target, double(maximum))));
 }
 
 int PdfPreviewWidget::firstVisiblePage() const
@@ -205,6 +250,7 @@ int PdfPreviewWidget::firstVisiblePage() const
 
 void PdfPreviewWidget::layoutPages()
 {
+    QScopedValueRollback<bool> applying(applyingScroll_, true);
     layoutError_.clear();
     const int anchor = firstVisiblePage();
     const bool hasAnchor = anchor < pageRects_.size();
@@ -332,6 +378,7 @@ void PdfPreviewWidget::resizeEvent(QResizeEvent *event)
     resizeTimer_.start();
     layoutPages();
     viewport()->update();
+    publishScrollPosition();
 }
 
 void PdfPreviewWidget::showEvent(QShowEvent *event)
@@ -339,10 +386,20 @@ void PdfPreviewWidget::showEvent(QShowEvent *event)
     QAbstractScrollArea::showEvent(event);
     layoutPages();
     requestRender();
+    emit previewReadyChanged(isPreviewReady());
+}
+
+void PdfPreviewWidget::hideEvent(QHideEvent *event)
+{
+    scrollReportTimer_.stop();
+    emit previewReadyChanged(false);
+    QAbstractScrollArea::hideEvent(event);
 }
 
 void PdfPreviewWidget::scrollContentsBy(int, int)
 {
     viewport()->update();
     requestRender();
+    if (!applyingScroll_ && !scrollReportTimer_.isActive())
+        scrollReportTimer_.start();
 }

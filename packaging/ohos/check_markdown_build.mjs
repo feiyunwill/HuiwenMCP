@@ -34,9 +34,10 @@ try {
   const first = run();
   assert.equal(first.status, 0, first.stdout + first.stderr);
   assert.match(first.stdout, /DEPENDENCIES install/);
-  const api = vm.runInNewContext(`${readOutput('huiwen-markdown.js')}\nHuiwenMarkdown;`, {
+  const context = vm.createContext({
     console, setTimeout, clearTimeout
   });
+  const api = vm.runInContext(`${readOutput('huiwen-markdown.js')}\nHuiwenMarkdown;`, context);
   assert.equal(api.EditorState.create({ doc: '# 标题' }).doc.toString(), '# 标题');
   assert.equal(typeof api.EditorView, 'function');
   assert.equal(typeof api.markdown, 'function');
@@ -48,6 +49,70 @@ try {
   assert.match(html, /<table>/);
   assert.ok(!html.includes('<script>'));
   assert.ok(!api.renderMarkdown('[危险链接](javascript:alert(1))').includes('href="javascript:'));
+  const marked = '<!-- PDF page 1 -->\n\n第一页\n\n<!-- PDF page 2 -->\n\n第二页' +
+    '\n\n<!-- PDF page 3 -->\n\n第三页';
+  const markedHtml = api.renderPreview(marked);
+  assert.match(markedHtml, /data-pdf-page="1"/);
+  assert.match(markedHtml, /data-pdf-page="2"/);
+  assert.ok(!markedHtml.includes('&lt;!-- PDF page'));
+  assert.ok(!api.renderPreview('```md\n<!-- PDF page 1 -->\n```').includes('data-pdf-page'));
+  assert.ok(!api.renderPreview('- <!-- PDF page 1 -->').includes('data-pdf-page'));
+  assert.ok(!api.renderPreview(marked + '\n\n<!-- PDF page 1 -->').includes('data-pdf-page'));
+  assert.ok(!api.renderPreview('<!-- PDF page 1 -->\n\n<script>alert(1)</script>').includes('<script>'));
+
+  // 在隔离 DOM 中检查页锚点、百分比回退和异步 scroll 的回传抑制。
+  const events = new Map();
+  const frames = [];
+  const notices = [];
+  let pageTops = [24, 700, 1400];
+  const browser = {
+    scrollY: 0, innerHeight: 400,
+    addEventListener: (name, callback) => events.set(name, callback),
+    requestAnimationFrame: (callback) => frames.push(callback),
+    huiwenReportScroll: (...args) => notices.push(args),
+    scrollTo: (value, y) => {
+      browser.scrollY = typeof value === 'object' ? value.top : y;
+      events.get('scroll')?.();
+    }
+  };
+  const body = {
+    innerHTML: '',
+    querySelectorAll: () => pageTops.map((_, i) => ({
+      dataset: { pdfPage: String(i + 1) },
+      getBoundingClientRect: () => ({ top: pageTops[i] - browser.scrollY, height: 450 })
+    }))
+  };
+  context.window = browser;
+  context.document = { documentElement: { scrollHeight: 2000 }, getElementById: () => body };
+  context.ResizeObserver = class {
+    constructor(callback) { this.callback = callback; }
+    observe() { this.callback(); }
+    disconnect() {}
+  };
+  const flushFrames = () => { while (frames.length) frames.shift()(); };
+  api.showPreview(marked);
+  flushFrames();
+  assert.equal(notices.length, 1, 'ResizeObserver 不能吞掉首次正文就绪通知');
+  api.setScrollPosition(2, 0.5, 0.3);
+  flushFrames();
+  assert.equal(browser.scrollY, 1050);
+  assert.equal(notices.length, 1, '程序滚动不能回传造成循环');
+  browser.scrollY = 1120;
+  events.get('scroll')();
+  flushFrames();
+  assert.deepEqual(notices.at(-1), [2, 0.6, 0.7]);
+  api.setScrollPosition(3, 0.4, 1);
+  assert.equal(browser.scrollY, 1600);
+  api.setScrollPosition(2, 0.5, 0);
+  assert.equal(browser.scrollY, 0);
+  pageTops = [];
+  api.showPreview('无页码的旧文档');
+  flushFrames();
+  api.setScrollPosition(7, 0.1, 0.5);
+  flushFrames();
+  assert.equal(browser.scrollY, 800);
+  assert.equal(api.scrollPosition().page, 0);
+  assert.equal(api.scrollPosition().progress, 0.5);
   const page = readOutput('preview.html').toString();
   assert.match(page, /Content-Security-Policy/);
   assert.ok(!page.includes('HUIWEN_PREVIEW_SCRIPT'));

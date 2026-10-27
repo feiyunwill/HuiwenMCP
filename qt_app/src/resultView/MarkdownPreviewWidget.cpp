@@ -14,6 +14,7 @@
 #include <QTextCodec>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <cmath>
 
 #ifdef Q_OS_OPENHARMONY
 #include "include/cef_app.h"
@@ -21,6 +22,7 @@
 #include "include/cef_client.h"
 #include "include/cef_load_handler.h"
 #include "include/cef_menu_model.h"
+#include "include/cef_process_message.h"
 #include "include/cef_request_handler.h"
 #include "include/cef_task.h"
 #include <unordered_map>
@@ -166,8 +168,10 @@ class PreviewClient final : public CefClient,
 {
   public:
     using Notice = std::function<void(bool, const QString &)>;
-    PreviewClient(QString url, QString text, Notice notice)
-        : url_(std::move(url)), text_(std::move(text)), notice_(std::move(notice))
+    using ScrollNotice = std::function<void(int, double, double)>;
+    PreviewClient(QString url, QString text, Notice notice, ScrollNotice scrollNotice)
+        : url_(std::move(url)), text_(std::move(text)), notice_(std::move(notice)),
+          scrollNotice_(std::move(scrollNotice))
     {
     }
     CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
@@ -223,6 +227,36 @@ class PreviewClient final : public CefClient,
                 EWAdapterC::hideNode(node);
             browser_->GetHost()->CloseBrowser(true);
         }
+    }
+    void scrollTo(int page, double fraction, double progress)
+    {
+        if (!browser_ || !loaded_ || closing_)
+            return;
+        const auto arguments =
+            QJsonDocument(QJsonArray{page, fraction, progress}).toJson(QJsonDocument::Compact);
+        const auto script = QStringLiteral("window.HuiwenMarkdown.setScrollPosition(...%1);")
+                                .arg(QString::fromUtf8(arguments));
+        browser_->GetMainFrame()->ExecuteJavaScript(script.toStdString(), url_.toStdString(), 0);
+    }
+    bool OnProcessMessageReceived(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame,
+                                  CefProcessId source, CefRefPtr<CefProcessMessage> message) override
+    {
+        if (message->GetName() != "Huiwen.PreviewScroll")
+            return false;
+        if (closing_ || !loaded_ || source != PID_RENDERER || !frame->IsMain() ||
+            frame->GetURL().ToString() != url_.toStdString())
+            return true;
+        const auto values = message->GetArgumentList();
+        if (values->GetSize() != 3 || values->GetType(0) != VTYPE_INT ||
+            values->GetType(1) != VTYPE_DOUBLE || values->GetType(2) != VTYPE_DOUBLE)
+            return true;
+        const int page = values->GetInt(0);
+        const double fraction = values->GetDouble(1);
+        const double progress = values->GetDouble(2);
+        if (page >= 0 && page <= 100000 && std::isfinite(fraction) && fraction >= 0 && fraction <= 1 &&
+            std::isfinite(progress) && progress >= 0 && progress <= 1)
+            scrollNotice_(page, fraction, progress);
+        return true;
     }
     void OnAfterCreated(CefRefPtr<CefBrowser> browser) override
     {
@@ -299,6 +333,7 @@ class PreviewClient final : public CefClient,
     QString url_;
     QString text_;
     Notice notice_;
+    ScrollNotice scrollNotice_;
     CefRefPtr<CefBrowser> browser_;
     bool closing_ = false;
     bool loaded_ = false;
@@ -316,6 +351,7 @@ class MarkdownPreviewWidget::Private
     QString text;
     QString url;
     bool valid = false;
+    bool ready = false;
     bool active = true;
     int generation = 0;
     int bottomInset = 0;
@@ -338,6 +374,7 @@ MarkdownPreviewWidget::MarkdownPreviewWidget(QWidget *parent) : QWidget(parent),
 
 MarkdownPreviewWidget::~MarkdownPreviewWidget()
 {
+    blockSignals(true);
     if (window() != this)
         window()->removeEventFilter(this);
     closeBrowser();
@@ -430,8 +467,31 @@ void MarkdownPreviewWidget::openBrowser()
                                                self->d_->timer->stop();
                                                self->d_->status->setVisible(!ready);
                                                if (!ready)
+                                               {
+                                                   self->d_->ready = false;
+                                                   emit self->previewReadyChanged(false);
                                                    self->d_->status->setText(error);
+                                               }
                                                self->syncGeometry();
+                                           },
+                                           Qt::QueuedConnection);
+                                   },
+                                   [self, generation](int page, double fraction, double progress)
+                                   {
+                                       QMetaObject::invokeMethod(
+                                           qApp,
+                                           [self, generation, page, fraction, progress]
+                                           {
+                                               if (!self || self->d_->generation != generation ||
+                                                   !self->isVisible())
+                                                   return;
+                                               if (!self->d_->ready)
+                                               {
+                                                   self->d_->ready = true;
+                                                   emit self->previewReadyChanged(true);
+                                                   return;
+                                               }
+                                               emit self->scrollPositionChanged(page, fraction, progress);
                                            },
                                            Qt::QueuedConnection);
                                    });
@@ -446,6 +506,11 @@ void MarkdownPreviewWidget::openBrowser()
 
 void MarkdownPreviewWidget::closeBrowser()
 {
+    if (d_->ready)
+    {
+        d_->ready = false;
+        emit previewReadyChanged(false);
+    }
     ++d_->generation;
     d_->timer->stop();
 #ifdef Q_OS_OPENHARMONY
@@ -456,6 +521,19 @@ void MarkdownPreviewWidget::closeBrowser()
             postCef([client] { client->close(); });
         d_->client = nullptr;
     }
+#endif
+}
+
+bool MarkdownPreviewWidget::isPreviewReady() const { return d_->ready && isVisible(); }
+
+void MarkdownPreviewWidget::setScrollPosition(int page, double fraction, double progress)
+{
+    if (!isPreviewReady() || !std::isfinite(fraction) || !std::isfinite(progress))
+        return;
+#ifdef Q_OS_OPENHARMONY
+    const auto client = d_->client;
+    if (client && CefRuntime::instance().state == CefRuntime::Ready)
+        postCef([client, page, fraction, progress] { client->scrollTo(page, fraction, progress); });
 #endif
 }
 

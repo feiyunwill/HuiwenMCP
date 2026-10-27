@@ -13,8 +13,12 @@ class MarkdownResultView : public QWidget
     explicit MarkdownResultView(QWidget *parent = nullptr);
     void setResultFile(const QString &path);
     void setPreviewBottomInset(int inset);
+    bool isPreviewReady() const;
+    void setScrollPosition(int page, double fraction, double progress);
   signals:
     void locationRequested(const QString &path);
+    void previewReadyChanged(bool ready);
+    void scrollPositionChanged(int page, double fraction, double progress);
 
   private:
     FileCard *card_;

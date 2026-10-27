@@ -5,11 +5,18 @@
 
 class MarkdownPreviewWidget : public QWidget
 {
+    Q_OBJECT
   public:
     explicit MarkdownPreviewWidget(QWidget *parent = nullptr);
     ~MarkdownPreviewWidget() override;
     void setDocument(const QString &path);
     void setBottomInset(int inset);
+    bool isPreviewReady() const;
+    void setScrollPosition(int page, double fraction, double progress);
+
+  signals:
+    void previewReadyChanged(bool ready);
+    void scrollPositionChanged(int page, double fraction, double progress);
 
   protected:
     void showEvent(QShowEvent *event) override;

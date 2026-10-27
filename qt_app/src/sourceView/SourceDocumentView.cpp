@@ -42,6 +42,10 @@ SourceDocumentView::SourceDocumentView(QWidget *parent)
     setMinimumWidth(260);
     setDocuments({});
     connect(card_, &QPushButton::clicked, this, &SourceDocumentView::selectionRequested);
+    connect(preview_, &PdfPreviewWidget::previewReadyChanged, this,
+            &SourceDocumentView::previewReadyChanged);
+    connect(preview_, &PdfPreviewWidget::scrollPositionChanged, this,
+            &SourceDocumentView::scrollPositionChanged);
     connect(replaceButton_, &QPushButton::clicked, this, &SourceDocumentView::selectionRequested);
     connect(preview_, &PdfPreviewWidget::documentOpened, this,
             [this](const QString &path)
@@ -85,3 +89,12 @@ void SourceDocumentView::setBusy(bool busy)
     previewButton_->setEnabled(!busy && !inputPath_.isEmpty());
     replaceButton_->setEnabled(!busy);
 }
+
+bool SourceDocumentView::isPreviewReady() const { return preview_->isPreviewReady(); }
+
+void SourceDocumentView::setScrollPosition(int page, double fraction, double progress)
+{
+    preview_->setScrollPosition(page, fraction, progress);
+}
+
+void SourceDocumentView::publishScrollPosition() { preview_->publishScrollPosition(); }

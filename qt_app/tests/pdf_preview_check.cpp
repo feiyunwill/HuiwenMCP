@@ -106,6 +106,24 @@ int main(int argc, char **argv)
     source.resize(720, 320);
     waitFor([&]
             { return view->verticalScrollBar()->maximum() > oldRange && hasColor(view, Qt::red); });
+    require(view->verticalScrollBar()->singleStep() == 40, "PDF 滚轮步长应使用文档阅读尺度");
+    int reports = 0;
+    int page = 0;
+    double fraction = 0;
+    QObject::connect(view, &PdfPreviewWidget::scrollPositionChanged,
+                     [&](int current, double part, double)
+                     {
+                         ++reports;
+                         page = current;
+                         fraction = part;
+                     });
+    view->setScrollPosition(2, 0.25, 0.5);
+    require(reports == 0, "同步带动的 PDF 滚动不能立即反向回传");
+    view->publishScrollPosition();
+    require(page == 2 && qAbs(fraction - 0.25) < 0.01, "PDF 应按页码和页内比例定位");
+    view->setScrollPosition(0, 0, 0.5);
+    require(qAbs(view->verticalScrollBar()->value() - view->verticalScrollBar()->maximum() * 0.5) <= 1,
+            "无页码时应按总进度定位 PDF");
     view->verticalScrollBar()->setValue(view->verticalScrollBar()->maximum());
     waitFor([&] { return hasColor(view, Qt::blue); });
     button->click();

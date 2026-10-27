@@ -26,14 +26,20 @@ class PdfPreviewWidget : public QAbstractScrollArea
     explicit PdfPreviewWidget(QWidget *parent = nullptr);
     ~PdfPreviewWidget() override;
     void setDocument(const QString &path);
+    bool isPreviewReady() const;
+    void setScrollPosition(int page, double fraction, double progress);
+    void publishScrollPosition();
 
   signals:
     void documentOpened(const QString &path);
+    void previewReadyChanged(bool ready);
+    void scrollPositionChanged(int page, double fraction, double progress);
 
   protected:
     void paintEvent(QPaintEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
     void showEvent(QShowEvent *event) override;
+    void hideEvent(QHideEvent *event) override;
     void scrollContentsBy(int dx, int dy) override;
 
   private:
@@ -47,10 +53,12 @@ class PdfPreviewWidget : public QAbstractScrollArea
     quint64 generation_ = 0;
     bool loadPending_ = false;
     bool taskPending_ = false;
+    bool applyingScroll_ = false;
     std::shared_ptr<PdfPreviewDocument> document_;
     QVector<QSizeF> pageSizes_;
     QVector<QRectF> pageRects_;
     QCache<int, QImage> images_{64 * 1024 * 1024};
     QFutureWatcher<PdfPreviewResult> watcher_;
     QTimer resizeTimer_;
+    QTimer scrollReportTimer_;
 };
