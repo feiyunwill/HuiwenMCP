@@ -30,7 +30,8 @@ export function renderPreview(source) {
   const render = (start, end) => renderer.renderer.render(tokens.slice(start, end), renderer.options, environment);
   return render(0, markers[0].index) + markers.map((marker, i) =>
     `<section class="pdf-page" data-pdf-page="${marker.page}">` +
-    render(marker.index + 3, markers[i + 1]?.index ?? tokens.length) + '</section>'
+    render(marker.index + 3, markers[i + 1]?.index ?? tokens.length) +
+    `<div class="pdf-page-number">--第${marker.page}页--</div></section>`
   ).join('');
 }
 
