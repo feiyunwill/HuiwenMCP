@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.16)
+project(SandboxStartupCheck LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(Qt5 5.15 REQUIRED COMPONENTS Widgets)
+find_package(Threads REQUIRED)
+add_executable(sandbox_startup_check sandbox_startup_check.cpp ../../src/sandbox/SandboxStore.cpp)
+target_include_directories(sandbox_startup_check PRIVATE ../../src)
+target_link_libraries(sandbox_startup_check PRIVATE Qt5::Widgets Threads::Threads)

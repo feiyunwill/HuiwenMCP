@@ -213,6 +213,8 @@ files/
 - 行点击直接通过 Want 的 `huiwenTaskPath` 传任务标识，跳过格式弹窗和选择器。首页先检查任务，Qt Ability 再经异步 `harmonyLoadTask(filesDir, taskPath)` 调用 `SandboxStore::loadTask()` 校验；只允许已接入的 PDF→MD，重新读取原输入和预定输出路径，不信任页面缓存的文件路径。其他模式显示对应图标和标签，但暂不开放恢复。
 - `SandboxService::restorationRequested()` 通知 `ConversionWindow::restoreDocument()`；窗口正在选择或转换时拒绝替换，原 PDF 失效时也不覆盖当前任务。恢复时加载原 PDF 和非空的已有 MD；没有 MD 时继续显示等待提示，不自动重新转换。当前查看方式沿用 Qt 工作区已有状态。
 - Qt 载入后调用 `SandboxService::finishRestoration()` 更新时间，通过 `restoreResult` 回执通知 Qt Ability，成功后才发出首页关闭通知。读取列表、恢复前校验及恢复失败不更新时间；目录名的创建时间不变。新启动及 `onNewWant` 复用窗口都走同一恢复链。日志前缀为 `HUIWEN_QT_RESTORE_OK` / `HUIWEN_QT_RESTORE_FAILED`；系统实际交接与显示仍需真机验收。
+- 首页查询和恢复前校验可能先于 `QApplication` 执行；任务命名校验使用字符检查，PDF 预读使用 C++ 标准文件流，避免在 NAPI 工作线程通过 `QFile`（`QObject`）或正则 JIT 提前初始化 Qt 线程数据，导致工作区鼠标事件触发主线程断言。
+- 启动顺序回归检查独立于 PDFium：`cmake -S qt_app/tests/sandbox_startup -B /tmp/huiwen-sandbox-startup -DCMAKE_PREFIX_PATH=<宿主Qt5路径>`，然后 `cmake --build /tmp/huiwen-sandbox-startup`，最后 `QT_QPA_PLATFORM=offscreen /tmp/huiwen-sandbox-startup/sandbox_startup_check`。检查先在线程中查询、校验任务，再创建 `QApplication` 并分发鼠标事件；它不能替代鸿蒙真机恢复验收。
 
 当前 Qt PDF→MD 选择链改为传递 `DocumentMode.Convert`，使用 `convert/<任务>/input` 与 `output`。转换成功才展示 MD 卡片，扫描件仍按原有错误提示处理；Python 继续接收具体输入、输出路径。点击 MD 卡片仍通过 `openLink('filemanager://openDirectory')` 传入校验后的结果 URI，打开真实输出目录，不创建应用内文件浏览器。
 

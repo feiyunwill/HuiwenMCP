@@ -4,9 +4,9 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QRegularExpression>
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
 #include <stdexcept>
 
 namespace
@@ -36,7 +36,12 @@ QString safeName(const QString &name)
         name.contains(QChar::Null))
         fail(QStringLiteral("所选文件名无效"));
     QString result = name;
-    result.replace(QRegularExpression(QStringLiteral("[:*?\"<>|\\x{0000}-\\x{001f}]")), "_");
+    for (int index = 0; index < result.size(); ++index)
+    {
+        const QChar character = result.at(index);
+        if (character.unicode() < 32 || QStringLiteral(":*?\"<>|").contains(character))
+            result[index] = '_';
+    }
     while (result.endsWith('.') || result.endsWith(' '))
         result.chop(1);
     if (result.isEmpty() || result.toUtf8().size() > 240)
@@ -67,7 +72,15 @@ QString ensureChild(const QString &parent, const QString &name)
 
 bool validTaskName(const QString &name)
 {
-    return QRegularExpression(QStringLiteral("^[0-9]{8}_[0-9]{6}_.+")).match(name).hasMatch();
+    // 首页会在 QApplication 创建前查询任务，避免正则 JIT 使用 Qt 线程局部存储。
+    if (name.size() < 17 || name.at(8) != '_' || name.at(15) != '_' || name.at(16) == '\n')
+        return false;
+    for (int index = 0; index < 15; ++index)
+    {
+        if (index != 8 && (name.at(index) < QLatin1Char('0') || name.at(index) > QLatin1Char('9')))
+            return false;
+    }
+    return true;
 }
 
 QString checkedTask(const QString &root, const QString &path)
@@ -272,10 +285,12 @@ DocumentItem SandboxStore::loadTask(const QString &filesDir, const QString &task
     {
         if (kindOf(input.fileName()) != "pdf")
             continue;
-        QFile file(input.absoluteFilePath());
+        // 恢复前校验运行在 NAPI 工作线程；QFile 是 QObject，会提前占用 Qt 主线程标识。
+        const QByteArray path = input.absoluteFilePath().toUtf8();
+        std::ifstream file(std::filesystem::u8path(path.constData()), std::ios::binary);
+        char firstByte = 0;
         if (!document.inputPath.isEmpty() || !input.isReadable() || input.size() <= 0 ||
-            input.canonicalFilePath() != input.absoluteFilePath() || !file.open(QIODevice::ReadOnly) ||
-            file.read(1).isEmpty())
+            input.canonicalFilePath() != input.absoluteFilePath() || !file.get(firstByte))
             fail(QStringLiteral("任务输入不唯一、已失效或无法读取"));
         document.kind = "pdf";
         document.name = input.fileName();
