@@ -65,7 +65,7 @@ def sync_dependencies():
     # gclient 不管理主源码，避免 Run 覆盖用户在 fork 中的修改。
     skip = ("buildtools/reclient", "third_party/cpython3/host", "third_party/cpython3/linux-amd64",
             "third_party/depot_tools", "third_party/instrumented_libs", "third_party/nasm",
-            "third_party/siso/cipd", "third_party/test_fonts", "tools/code_coverage",
+            "third_party/siso/cipd", "tools/code_coverage",
             "tools/memory", "tools/resultdb", "tools/skia_goldctl/mac_amd64",
             "tools/skia_goldctl/mac_arm64", "third_party/llvm-build/Release+Asserts",
             "third_party/ninja", "buildtools/mac", "buildtools/linux64", "buildtools/win",
@@ -100,7 +100,11 @@ def sync_dependencies():
                     custom_vars=dict(checkout_configuration="minimal", checkout_clang_tidy=False,
                                      checkout_clangd=False, checkout_clang_coverage_tools=False))
     (ROOT / "third_party/.gclient").write_text(f"solutions = {[solution]!r}\n")
-    env = {**os.environ, "DEPOT_TOOLS_UPDATE": "0",
+    # gclient/vpython3 会从 PATH 再次查找 python3，沿用宿主解释器，
+    # 避免 DevEco 的 PATH 回退到 Xcode 自带的旧版 Python。
+    env = {**os.environ,
+           "PATH": str(Path(sys.executable).parent) + os.pathsep + os.environ.get("PATH", ""),
+           "DEPOT_TOOLS_UPDATE": "0",
            "VPYTHON_BYPASS": "manually managed python not supported by chrome operations",
            "GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "http.version",
            "GIT_CONFIG_VALUE_0": "HTTP/1.1"}
@@ -175,7 +179,10 @@ def build(sync=False):
     sdk = native_sdk()
     deps_hash = hashlib.sha256((SOURCE / "DEPS").read_bytes()).hexdigest()
     stamp = ROOT / ".native-tools/pdfium-deps.sha256"
-    if sync or not stamp.exists() or stamp.read_text().strip() != deps_hash:
+    # 即使仅构建动态库，GN 仍会解析 testing 对 test_fonts 的引用。
+    # 旧版脚本曾跳过此依赖，已有同步标记也需要补齐它。
+    if (sync or not stamp.exists() or stamp.read_text().strip() != deps_hash
+            or not (SOURCE / "third_party/test_fonts/BUILD.gn").is_file()):
         print("[HUIWEN_PDFIUM] SYNC dependencies", flush=True)
         sync_dependencies()
         stamp.write_text(deps_hash + "\n")
