@@ -209,28 +209,50 @@ struct HomePage {
   homeContent() {
     Row({ space: 24 }) {
       // 除窄侧栏及间距外，介绍区与主功能区按 3:7 分配剩余宽度。
-      Column({ space: 20 }) {
-        Text('汇文MCP')
-          .fontSize(48)
-          .minFontSize(20)
-          .maxFontSize(48)
-          .maxLines(1)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#183153')
-        Text('PDF 与 Markdown 的阅读和转换工具')
-          .fontSize(20)
-          .fontColor('#4B6080')
-        Text('汇集千文 · 连通万物')
-          .fontSize(16)
-          .fontColor('#667B98')
+      Stack({ alignContent: Alignment.Center }) {
+        // 底图允许裁切外围留白，独立矢量符号始终等比例居中。
+        Image($r('app.media.home_brand_background'))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .draggable(false)
+          .hitTestBehavior(HitTestMode.None)
+        Image($r('app.media.home_brand_infinity'))
+          .width('76%')
+          .aspectRatio(2)
+          .objectFit(ImageFit.Contain)
+          .draggable(false)
+          .hitTestBehavior(HitTestMode.None)
+        Column({ space: 20 }) {
+          Text('汇文MCP')
+            .fontSize(48)
+            .minFontSize(20)
+            .maxFontSize(48)
+            .maxLines(1)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#183153')
+          Column({ space: 20 }) {
+            Text('PDF 与 Markdown 的阅读和转换工具')
+              .fontSize(20)
+              .fontColor('#4B6080')
+            Text('汇集千文 · 连通万物')
+              .fontSize(16)
+              .fontColor('#667B98')
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+        }
+        .width('100%')
+        .height('100%')
+        .padding({ top: 50, right: 32, bottom: 50, left: 32 })
+        .justifyContent(FlexAlign.SpaceBetween)
+        .alignItems(HorizontalAlign.Start)
       }
       .layoutWeight(3)
       .height('100%')
-      .padding(32)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Start)
-      .backgroundColor('#EAF2FF')
+      .backgroundColor('#DFE4EA')
       .borderRadius(24)
+      .clip(true)
 
       Column({ space: 0 }) {
         // 两区顶部顺序排列，最近工作区的间隔由自身外边距单独控制。
