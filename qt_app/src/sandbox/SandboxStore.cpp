@@ -258,6 +258,43 @@ void SandboxStore::markUsed(const QString &filesDir, const QString &path)
         fail(QStringLiteral("无法更新任务使用时间：") + QString::fromStdString(error.message()));
 }
 
+DocumentItem SandboxStore::loadTask(const QString &filesDir, const QString &taskPath)
+{
+    const QString root = rootPath(filesDir);
+    const QString task = checkedTask(root, taskPath);
+    if (task != taskPath || QDir(root).relativeFilePath(task).section('/', 0, 0) != "convert")
+        fail(QStringLiteral("当前仅支持恢复 PDF 转 MD 转化任务"));
+    const QString inputDir = validateTaskDirectory(root, task + "/input");
+    const QString outputDir = validateTaskDirectory(root, task + "/output");
+    DocumentItem document;
+    const auto inputs = QDir(inputDir).entryInfoList(QDir::Files | QDir::NoSymLinks, QDir::Name);
+    for (const QFileInfo &input : inputs)
+    {
+        if (kindOf(input.fileName()) != "pdf")
+            continue;
+        QFile file(input.absoluteFilePath());
+        if (!document.inputPath.isEmpty() || !input.isReadable() || input.size() <= 0 ||
+            input.canonicalFilePath() != input.absoluteFilePath() || !file.open(QIODevice::ReadOnly) ||
+            file.read(1).isEmpty())
+            fail(QStringLiteral("任务输入不唯一、已失效或无法读取"));
+        document.kind = "pdf";
+        document.name = input.fileName();
+        document.inputPath = input.absoluteFilePath();
+    }
+    if (document.inputPath.isEmpty())
+        fail(QStringLiteral("原任务的 PDF 已被删除或无法读取"));
+    document.outputPath = outputDir + "/" + QFileInfo(document.name).completeBaseName() + ".md";
+    const QFileInfo output(document.outputPath);
+    if (output.isSymLink() || (output.exists() && (!output.isFile() || !output.isReadable() ||
+                                                   output.canonicalFilePath() != document.outputPath)))
+        fail(QStringLiteral("原任务的 Markdown 路径已失效"));
+    document.taskPath = task;
+    document.mode = "convert";
+    document.openPath = document.inputPath;
+    document.lastUsedAt = QFileInfo(task).lastModified().toMSecsSinceEpoch();
+    return document;
+}
+
 void SandboxStore::markUsed(const DocumentItem &document)
 {
     if (!document.taskPath.isEmpty())

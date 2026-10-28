@@ -2,8 +2,10 @@
 import { common } from '@kit.AbilityKit';
 import { FunctionSidebar } from '../components/FunctionSidebar';
 import { HomeFeatureCard } from '../components/HomeFeatureCard';
+import { RecentWorkspaceList } from '../components/RecentWorkspaceList';
 import { HOME_FORMAT_DIALOG_WIDTH, HomeFeature, HomeFormatDialog } from '../components/HomeFormatDialog';
 import { getNativeStatus } from '../services/ConversionService';
+import { listRecentWorkspaces, RecentWorkspace, validateRecentWorkspace } from '../services/RecentWorkspaceService';
 
 @Entry
 @Component
@@ -12,10 +14,14 @@ struct HomePage {
   @State activeFeature: HomeFeature = HomeFeature.None;
   @State workspaceError: string = '';
   @State workspaceLaunching: boolean = false;
-  private formatDialogId: number = -1;
-  private formatDialogOpening: boolean = false;
+  @State recentWorkspaces: RecentWorkspace[] = [];
+  @State recentLoading: boolean = false;
+  @State recentError: string = '';
+  @State formatDialogId: number = -1;
+  @State formatDialogOpening: boolean = false;
   private homeVisible: boolean = false;
   private launchTimeout: number = -1;
+  private launchVersion: number = 0;
   private workspaceReady = (): void => {
     // 只有发起跳转的首页消费一次就绪通知，避免其他页面结束自己的 Ability。
     if (!this.workspaceLaunching) {
@@ -46,6 +52,7 @@ struct HomePage {
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
     context.getApplicationContext().eventHub.on('huiwen.workspace.ready', this.workspaceReady);
     context.getApplicationContext().eventHub.on('huiwen.workspace.failed', this.workspaceFailed);
+    this.refreshRecentWorkspaces();
   }
 
   aboutToDisappear(): void {
@@ -57,7 +64,32 @@ struct HomePage {
     context.getApplicationContext().eventHub.off('huiwen.workspace.failed', this.workspaceFailed);
   }
 
-  private async openWorkspace(): Promise<void> {
+  onPageShow(): void {
+    this.refreshRecentWorkspaces();
+  }
+
+  private async refreshRecentWorkspaces(): Promise<void> {
+    if (!this.homeVisible || this.recentLoading) {
+      return;
+    }
+    this.recentLoading = true;
+    this.recentError = '';
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const workspaces = await listRecentWorkspaces(context);
+      if (this.homeVisible) {
+        this.recentWorkspaces = workspaces;
+      }
+    } catch (error) {
+      if (this.homeVisible) {
+        this.recentError = `读取最近工作区失败：${(error as Error).message}`;
+      }
+    } finally {
+      this.recentLoading = false;
+    }
+  }
+
+  private async openWorkspace(taskPath: string = ''): Promise<void> {
     if (this.workspaceLaunching) {
       return;
     }
@@ -66,15 +98,27 @@ struct HomePage {
       return;
     }
     this.workspaceLaunching = true;
+    const launchVersion = ++this.launchVersion;
     this.workspaceError = '';
     this.launchTimeout = setTimeout(() => {
       this.workspaceFailed('未收到窗口显示通知，请检查 HUIWEN_QT 日志');
     }, 15000);
     try {
       const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      await context.startAbility({ bundleName: 'cn.com.HuiWenMCP', abilityName: 'QtWorkspaceAbility' });
+      if (taskPath !== '') {
+        await validateRecentWorkspace(context, taskPath);
+      }
+      if (!this.homeVisible || !this.workspaceLaunching || launchVersion !== this.launchVersion) {
+        return;
+      }
+      await context.startAbility({
+        bundleName: 'cn.com.HuiWenMCP', abilityName: 'QtWorkspaceAbility',
+        parameters: { huiwenTaskPath: taskPath }
+      });
     } catch (error) {
-      this.workspaceFailed((error as Error).message);
+      if (launchVersion === this.launchVersion) {
+        this.workspaceFailed((error as Error).message);
+      }
     }
   }
 
@@ -188,63 +232,80 @@ struct HomePage {
       .backgroundColor('#EAF2FF')
       .borderRadius(24)
 
-      Column({ space: 24 }) {
-        Text('开始使用')
-          .fontSize(28)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#183153')
-        Text('选择需要的功能')
-          .fontSize(16)
-          .fontColor('#667B98')
+      Column({ space: 0 }) {
+        // 两区顶部顺序排列，最近工作区的间隔由自身外边距单独控制。
+        Column({ space: 24 }) {
+          Text('开始使用')
+            .fontSize(28)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#183153')
+          Text('请选择转化模式')
+            .fontSize(16)
+            .fontColor('#667B98')
 
-        Row({ space: 12 }) {
-          HomeFeatureCard({
-            title: '文档预览',
-            icon: $r('app.media.home_preview'),
-            selected: this.activeFeature === HomeFeature.Preview,
-            available: !this.workspaceLaunching,
-            onSelect: () => this.selectFeature(HomeFeature.Preview)
-          })
-          .layoutWeight(1)
-          HomeFeatureCard({
-            title: '文档编辑',
-            icon: $r('app.media.home_edit'),
-            selected: this.activeFeature === HomeFeature.Edit,
-            available: !this.workspaceLaunching,
-            onSelect: () => this.selectFeature(HomeFeature.Edit)
-          })
-          .layoutWeight(1)
-          HomeFeatureCard({
-            title: '文档转化',
-            icon: $r('app.media.home_convert'),
-            selected: this.activeFeature === HomeFeature.Convert,
-            available: !this.workspaceLaunching,
-            onSelect: () => this.selectFeature(HomeFeature.Convert)
-          })
-          .layoutWeight(1)
+          Row({ space: 12 }) {
+            HomeFeatureCard({
+              title: '文档预览',
+              icon: $r('app.media.home_preview'),
+              selected: this.activeFeature === HomeFeature.Preview,
+              available: !this.workspaceLaunching,
+              onSelect: () => this.selectFeature(HomeFeature.Preview)
+            })
+            .layoutWeight(1)
+            HomeFeatureCard({
+              title: '文档编辑',
+              icon: $r('app.media.home_edit'),
+              selected: this.activeFeature === HomeFeature.Edit,
+              available: !this.workspaceLaunching,
+              onSelect: () => this.selectFeature(HomeFeature.Edit)
+            })
+            .layoutWeight(1)
+            HomeFeatureCard({
+              title: '文档转化',
+              icon: $r('app.media.home_convert'),
+              selected: this.activeFeature === HomeFeature.Convert,
+              available: !this.workspaceLaunching,
+              onSelect: () => this.selectFeature(HomeFeature.Convert)
+            })
+            .layoutWeight(1)
+          }
+          .width('100%')
+          .margin({ top: 60 })
+
+          if (this.workspaceLaunching) {
+            Text('正在打开转换工作区…')
+              .fontSize(14)
+              .fontColor('#667B98')
+          }
+          if (this.workspaceError !== '') {
+            Text(this.workspaceError)
+              .fontSize(13)
+              .fontColor('#B45309')
+          }
+          if (this.pingResult !== 'NAPI OK') {
+            Text('原生模块尚未就绪')
+              .fontSize(13)
+              .fontColor('#B45309')
+          }
         }
         .width('100%')
+        .justifyContent(FlexAlign.Start)
+        .alignItems(HorizontalAlign.Start)
 
-        if (this.workspaceLaunching) {
-          Text('正在打开转换工作区…')
-            .fontSize(14)
-            .fontColor('#667B98')
-        }
-        if (this.workspaceError !== '') {
-          Text(this.workspaceError)
-            .fontSize(13)
-            .fontColor('#B45309')
-        }
-        if (this.pingResult !== 'NAPI OK') {
-          Text('原生模块尚未就绪')
-            .fontSize(13)
-            .fontColor('#B45309')
-        }
+        RecentWorkspaceList({
+          workspaces: this.recentWorkspaces,
+          loading: this.recentLoading,
+          error: this.recentError,
+          available: !this.workspaceLaunching && !this.formatDialogOpening && this.formatDialogId < 0,
+          onOpen: (taskPath: string) => this.openWorkspace(taskPath)
+        })
+        .margin({ top: 70 })
+        .flexShrink(0)
       }
       .layoutWeight(7)
       .height('100%')
-      .padding(24)
-      .justifyContent(FlexAlign.Center)
+      .padding({ top: 44, right: 24, bottom: 24, left: 24 })
+      .justifyContent(FlexAlign.Start)
       .alignItems(HorizontalAlign.Start)
       .backgroundColor('#FFFFFF')
       .borderRadius(24)

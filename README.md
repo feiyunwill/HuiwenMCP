@@ -13,6 +13,7 @@
 ## 当前状态
 
 - 首页保持 ArkTS；蓝色介绍区与主区域按约 30% / 70% 分配宽度，主区域提供文档预览、文档编辑、文档转化三个小正方形入口，普通字重的名称放在方块外下方。点击入口打开独立格式选择子窗口；预览和编辑仅展示 Word、PDF、MD 格式，转化窗口中的 PDF→MD 入口启动独立 Qt 工作区。
+- 首页右侧入口改为顶部排列，下方“最近工作区”默认展示三条任务目录记录；当前可恢复 PDF→MD 转化任务，加载原 PDF 和已有 MD，并在 Qt 载入成功后更新任务目录最近使用时间。本次最近列表、恢复与时间更新仅做格式检查，尚未编译、打包或真机验收。
 - ArkTS 首页左侧有 60vp 半透明窄侧栏，底部保留 36vp 三横线 SVG 菜单按钮，目前尚未接入菜单内容。首页内容背景与窗口容器分别设置透明，焦点态容器透明，非焦点态使用实色，右侧主内容保持不透明。
 - Qt 开发依赖保存在 `third_party/qt/`，运行库从 `entry/libs/arm64-v8a/` 链接并随 HAP 分发；PDFium fork 保存在 `third_party/pdfium/`，Qt 左侧输入区域已接入其公开 C API 实现正文预览；已完成鸿蒙编译、HAP 打包；系统目录跳转沿用原有实现。
 - DevEco Run 构建前执行 `PrepareNativeDependencies`，按当前 PDFium 源码增量生成 `libpdfium.so`；Qt/NAPI 的 C++ 编译后同步新库到 `libs`。没有保存源码自动构建、应用内动态替换库或保持进程状态的热重载。
@@ -38,9 +39,11 @@ HuiWenMCP/
 │   │   │   ├── components/FunctionSidebar.ets [已有] 首页半透明窄栏与底部菜单按钮
 │   │   │   ├── components/HomeFeatureCard.ets [已有] 正方形功能卡片与 SVG 图标
 │   │   │   ├── components/HomeFormatDialog.ets [已有] 独立格式选择子窗口与 PDF→MD 跳转事件
+│   │   │   ├── components/RecentWorkspaceList.ets [已有] 固定列、文件名中部省略与最近记录点击
 │   │   │   ├── pages/HomePage.ets      [已有] 首页功能切换与 Qt 窗口交接
 │   │   │   ├── pages/Index.ets         [已有] QPA 固定加载的 Qt XComponent 承载页
 │   │   │   ├── services/ConversionService.ets [已有] 页面调用原生转换的统一入口
+│   │   │   ├── services/RecentWorkspaceService.ets [已有] 最近数量、模式文案、时间和恢复前校验
 │   │   │   └── utils/DocumentStore.ets [已有] 系统选取授权与 NAPI 适配
 │   │   └── cpp/
 │   │       ├── CMakeLists.txt          [已有] 原生库构建配置
@@ -197,7 +200,17 @@ files/
 | `findEditCaches(context, name)` | 按原文件名查找所有同名编辑缓存，返回候选与 `openPath` |
 | `markDocumentUsed(context, taskPath)` | 未来预览/编辑页面在实际打开或保存后更新时间 |
 
-这些接口通过 NAPI 调用同一份 `SandboxStore`，返回名称、格式、模式、`taskPath`、`inputPath`、`outputPath`、`openPath` 和 `lastUsedAt`。Qt 侧可直接使用 `SandboxStore::recentDocuments()`、`findEditDocuments()`、`markUsed()`。本阶段提供目录与接口，首页最近任务列表、同名候选选择 UI 和独立编辑工作区尚未接入；首页预览和编辑仍只展示格式选项。
+这些接口通过 NAPI 调用同一份 `SandboxStore`，返回名称、格式、模式、`taskPath`、`inputPath`、`outputPath`、`openPath` 和 `lastUsedAt`。Qt 侧可直接使用 `SandboxStore::recentDocuments()`、`findEditDocuments()`、`markUsed()`。首页已接最近工作区列表；同名候选选择 UI 和独立编辑工作区仍未接入，首页预览和编辑入口仍只展示格式选项。
+
+## 首页最近工作区
+
+- 右侧主区顶部保留“开始使用”和三个模式入口，顶部留白 44vp；提示文案为“请选择转化模式”，与三个按钮区域的间隔为 84vp（原 24vp 间距加按钮区顶部 60vp）。上区使用普通 `Column` 按内容高度排列，不使用 `Scroll` 或纵向 `layoutWeight(1)`；父容器顶部排列且间距为 0，最近工作区通过自身顶部外边距与上区保持 50vp 距离，不再贴底。16vp 标题在记录滚动区外固定显示；窗口大小及左侧介绍区比例不变。
+- `RecentWorkspaceService.listRecentWorkspaces(context, limit = DEFAULT_RECENT_WORKSPACE_LIMIT)` 默认取三条，数量常量为 `3`，底层仍支持 1–100。扫描 `preview/edit/convert` 三类任务，按目录修改时间降序排列，不创建 JSON、数据库或新任务目录。
+- 每行高度为 48vp，模式图标底框 28vp、内部 SVG 18vp；文件名、格式、时间字号分别为 14、12、11，加载、空列表及失败提示为 12。格式列为 104vp、时间列为 152vp，格式与时间间隔 8vp。文件名使用 `layoutWeight(1)` 占满剩余宽度，单行中部省略，鼠标悬停显示全名；固定列不参与收缩。时间显示设备本地 `yyyy-MM-dd HH:mm`，使用灰色文字。
+- 仅记录区域使用 `Scroll`，标题不进入滚动容器；列表高度按条数计算并以 `maxListHeight` 限制，默认最大 240vp，可由调用方传参调整。默认三条时高度为 160vp，单条为 48vp，不补空行；更多记录超过最大高度后在内部滚动。
+- 行点击直接通过 Want 的 `huiwenTaskPath` 传任务标识，跳过格式弹窗和选择器。首页先检查任务，Qt Ability 再经异步 `harmonyLoadTask(filesDir, taskPath)` 调用 `SandboxStore::loadTask()` 校验；只允许已接入的 PDF→MD，重新读取原输入和预定输出路径，不信任页面缓存的文件路径。其他模式显示对应图标和标签，但暂不开放恢复。
+- `SandboxService::restorationRequested()` 通知 `ConversionWindow::restoreDocument()`；窗口正在选择或转换时拒绝替换，原 PDF 失效时也不覆盖当前任务。恢复时加载原 PDF 和非空的已有 MD；没有 MD 时继续显示等待提示，不自动重新转换。当前查看方式沿用 Qt 工作区已有状态。
+- Qt 载入后调用 `SandboxService::finishRestoration()` 更新时间，通过 `restoreResult` 回执通知 Qt Ability，成功后才发出首页关闭通知。读取列表、恢复前校验及恢复失败不更新时间；目录名的创建时间不变。新启动及 `onNewWant` 复用窗口都走同一恢复链。日志前缀为 `HUIWEN_QT_RESTORE_OK` / `HUIWEN_QT_RESTORE_FAILED`；系统实际交接与显示仍需真机验收。
 
 当前 Qt PDF→MD 选择链改为传递 `DocumentMode.Convert`，使用 `convert/<任务>/input` 与 `output`。转换成功才展示 MD 卡片，扫描件仍按原有错误提示处理；Python 继续接收具体输入、输出路径。点击 MD 卡片仍通过 `openLink('filemanager://openDirectory')` 传入校验后的结果 URI，打开真实输出目录，不创建应用内文件浏览器。
 
@@ -326,7 +339,7 @@ hvigorw assembleHap --mode module -p product=default -p module=entry@default
 4. 点击“转化”，操作期间不能重复选择或提交。成功后右侧显示 MD 占位图和输出文件名，底部显示 `code=0`、成功提示和完整路径；失败显示错误码及处理建议，按钮变为“重新转化”。重试期间禁用按钮，成功后恢复“转化”；更换文件恢复初始状态，取消选择保留原状态。
 5. 转换成功后底部显示完整 MD 路径；点击 MD 卡片，沿用系统文件管理器打开文件夹，文件夹内能看到真实 MD。不存在、为空或不可读取的结果应在跳转前明确报错，不能误报转换成功。
 6. 日志搜索 `HUIWEN_OUTPUT`：`import_success` 为导入落盘路径，`convert_start` 为输入/输出路径，`verified` 为磁盘验证及字节数，`convert_success` 为成功通知，`locate_start` 为点击时重新检查，`locate_requested` 为鸿蒙桥接已提交。系统跳转结果继续查看原有 `HUIWEN_QT_OPEN_REQUEST`、`HUIWEN_QT_OPEN_REQUEST_ACCEPTED` 或 `HUIWEN_QT_OPEN_FAILED`。
-7. 新导入生成 `convert/yyyyMMdd_HHmmss_文件名/input/原文件.pdf` 与 `output/原文件.md`；同秒同名只对任务目录追加编号，文件名保持一致。检查成功预览、转换开始及结束后任务目录修改时间会更新；同一任务重试路径不变。历史 `outputs/md/` 和日期目录继续支持原有文件管理器跳转。预览和编辑归档、最近查询、同名缓存查找的接口见“沙箱文件路径”，首页列表本阶段不接入。
+7. 新导入生成 `convert/yyyyMMdd_HHmmss_文件名/input/原文件.pdf` 与 `output/原文件.md`；同秒同名只对任务目录追加编号，文件名保持一致。首页默认展示最近三条记录，长文件名中部省略且不挤压固定列；点击应复用原任务、载入已有结果，不弹选择器、不新建目录。检查成功恢复、PDF 打开、转换开始及结束后任务目录修改时间会更新；查询和失败不更新时间。分别验证全新 Qt 窗口、已有窗口、转换中拒绝替换、PDF 被删除、尚无 MD 的任务。同一任务重试路径不变，历史 `outputs/md/` 继续支持原有目录跳转。
 
 Python 固定入口在 stdout 最后一行返回 `HUIWEN_CONVERT_RESULT {"code":0,"message":"转化成功，Markdown 文件已生成。","outputPath":"/沙箱/convert/时间戳_文件名/output/文件.md"}`。失败时 `code` 非零、`outputPath` 为空、进程退出码为 1；详细异常写入日志，界面展示中文原因和处理建议。C++ 独立保存完整结果行，日志尾部缓存仍限制为 4096 字节，结果不受日志截断影响。成功仍保留 `HUIWEN_CONVERT_OK` 标记，原 ArkTS 接口继续成功返回路径、失败拒绝 Promise。
 

@@ -22,6 +22,8 @@ interface HuiwenNative {
   harmonyValidateTaskDirectory(filesDir: string, path: string): string;
   // 后台读取三类目录，以最近使用时间降序返回；mode 为 all/preview/edit/convert。
   harmonyRecentDocuments(filesDir: string, mode: string, limit: number): Promise<HarmonySandboxDocument[]>;
+  // 只读取并校验已有 PDF→MD 任务，Qt 确认载入后才更新使用时间。
+  harmonyLoadTask(filesDir: string, taskPath: string): Promise<HarmonySandboxDocument>;
   // 返回所有同名编辑缓存，openPath 优先指向已有 output，查询本身不修改时间。
   harmonyFindEditCaches(filesDir: string, name: string): Promise<HarmonySandboxDocument[]>;
   // 实际打开、保存或转换后显式更新任务目录修改时间。

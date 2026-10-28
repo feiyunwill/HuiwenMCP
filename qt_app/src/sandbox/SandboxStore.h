@@ -12,6 +12,8 @@ class SandboxStore
     static QVector<DocumentItem> recentDocuments(const QString &filesDir, const QString &mode = "all",
                                                  int limit = 20);
     static QVector<DocumentItem> findEditDocuments(const QString &filesDir, const QString &name);
+    // 重新校验原任务并读取输入、已有输出；仅恢复已接入的 PDF→MD，不创建目录或更新时间。
+    static DocumentItem loadTask(const QString &filesDir, const QString &taskPath);
     // 路径可以是任务目录或其中的文件；读取列表本身不更新时间。
     static void markUsed(const QString &filesDir, const QString &path);
     static void markUsed(const DocumentItem &document);

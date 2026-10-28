@@ -27,16 +27,26 @@ SandboxService::SandboxService(QObject *parent) : QObject(parent)
             {
                 const auto result = QJsonDocument::fromJson(json.toUtf8()).object();
                 const auto action = result.value("action").toString();
-                if (action == "pick")
+                if (action == "pick" || action == "restore")
                 {
                     if (!result.value("inputPath").toString().isEmpty())
-                        emit documentSelected(
-                            {result.value("kind").toString(), result.value("name").toString(),
-                             result.value("inputPath").toString(), result.value("outputPath").toString(),
-                             result.value("taskPath").toString(), result.value("mode").toString(),
-                             static_cast<qint64>(result.value("lastUsedAt").toDouble()),
-                             result.value("openPath").toString()});
-                    emit selectionFinished();
+                    {
+                        const DocumentItem document{
+                            result.value("kind").toString(),
+                            result.value("name").toString(),
+                            result.value("inputPath").toString(),
+                            result.value("outputPath").toString(),
+                            result.value("taskPath").toString(),
+                            result.value("mode").toString(),
+                            static_cast<qint64>(result.value("lastUsedAt").toDouble()),
+                            result.value("openPath").toString()};
+                        if (action == "restore")
+                            emit restorationRequested(document);
+                        else
+                            emit documentSelected(document);
+                    }
+                    if (action == "pick")
+                        emit selectionFinished();
                 }
                 if (!result.value("error").toString().isEmpty())
                     emit failed(result.value("error").toString());
@@ -101,6 +111,31 @@ void SandboxService::markUsed(const DocumentItem &document)
         qWarning().noquote() << "HUIWEN_SANDBOX stage=touch_failed task=" << document.taskPath
                              << error.what();
     }
+}
+
+void SandboxService::finishRestoration(const DocumentItem &document, const QString &error)
+{
+    QString message = error;
+    if (message.isEmpty())
+    {
+        try
+        {
+            SandboxStore::markUsed(document);
+        }
+        catch (const std::exception &failure)
+        {
+            message = QString::fromUtf8(failure.what());
+        }
+    }
+#ifdef Q_OS_OPENHARMONY
+    const QString reply =
+        QString::fromUtf8(QJsonDocument(QJsonObject{{"taskPath", document.taskPath}, {"error", message}})
+                              .toJson(QJsonDocument::Compact));
+    if (!QtBridge::instance().request("restoreResult", reply))
+        message = QStringLiteral("无法通知首页任务恢复结果");
+#endif
+    if (!message.isEmpty())
+        emit failed(message);
 }
 
 void SandboxService::openResultLocation(const QString &path)

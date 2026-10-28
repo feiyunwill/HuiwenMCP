@@ -8,6 +8,8 @@
 #include "services/ConversionService.h"
 #include "sourceView/SourceDocumentView.h"
 #include <QCheckBox>
+#include <QFile>
+#include <QFileInfo>
 #include <QLabel>
 #include <QResizeEvent>
 #include <QSizePolicy>
@@ -108,6 +110,7 @@ ConversionWindow::ConversionWindow(QWidget *parent)
                 source_->setDocuments({document});
                 result_->setResultFile({});
             });
+    connect(sandbox_, &SandboxService::restorationRequested, this, &ConversionWindow::restoreDocument);
     connect(sandbox_, &SandboxService::selectionFinished, this,
             [this]
             {
@@ -189,6 +192,30 @@ void ConversionWindow::selectDocument()
     picking_ = true;
     refreshBusyState();
     sandbox_->selectPdf();
+}
+
+void ConversionWindow::restoreDocument(const DocumentItem &document)
+{
+    if (picking_ || converting_)
+    {
+        sandbox_->finishRestoration(document, QStringLiteral("工作区正在选择或转换文件，请稍后重试"));
+        return;
+    }
+    // 在替换当前工作区前再次确认输入可读，避免列表展示后文件被删除。
+    QFile input(document.inputPath);
+    if (!input.open(QIODevice::ReadOnly) || input.read(1).isEmpty())
+    {
+        sandbox_->finishRestoration(document, QStringLiteral("原任务的 PDF 已无法读取"));
+        return;
+    }
+    document_ = document;
+    retry_ = false;
+    status_->clear();
+    source_->setDocuments({document});
+    const QFileInfo output(document.outputPath);
+    result_->setResultFile(output.isFile() && output.size() > 0 ? document.outputPath : QString());
+    refreshBusyState();
+    sandbox_->finishRestoration(document);
 }
 
 void ConversionWindow::refreshScrollSync()

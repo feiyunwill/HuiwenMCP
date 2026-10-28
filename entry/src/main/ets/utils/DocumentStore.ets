@@ -69,7 +69,7 @@ export async function pickDocumentToSandbox(context: common.UIAbilityContext, ki
   }
 }
 
-// 首页后续通过此入口读取最近任务；本阶段不接入列表 UI。
+// 首页最近工作区复用此入口；查询本身不修改任务时间，数量由调用方传入。
 export function getRecentDocuments(context: common.UIAbilityContext, limit: number = 5,
   mode: string = 'all'): Promise<HarmonySandboxDocument[]> {
   return nativeBridge.harmonyRecentDocuments(context.getApplicationContext().filesDir, mode, limit);

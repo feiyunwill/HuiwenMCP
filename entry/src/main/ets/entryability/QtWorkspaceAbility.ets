@@ -19,13 +19,65 @@ interface WorkspaceReply extends HarmonySandboxDocument {
   error: string;
 }
 
+interface WorkspaceRestoreResult {
+  taskPath: string;
+  error: string;
+}
+
 export default class QtWorkspaceAbility extends UIAbility {
   // QPA 读取这两个字段，加载应用共享库并调用其中的 main()。
   private launchApplication: string = 'libhuiwen_qt.so';
   private launchParams: string = '';
   private pickerBusy: boolean = false;
   private workspaceReady: boolean = false;
+  private pendingTask: string = '';
+  private restoring: boolean = false;
+  private destroyed: boolean = false;
   private cefProxy: CefWorkspaceProxy | undefined = undefined;
+
+  onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    super.onCreate(want, launchParam);
+    this.pendingTask = this.requestedTask(want);
+  }
+
+  private requestedTask(want: Want): string {
+    const value = want.parameters?.huiwenTaskPath;
+    return typeof value === 'string' ? value : '';
+  }
+
+  private async deliverPendingTask(): Promise<void> {
+    if (this.restoring || this.destroyed) {
+      return;
+    }
+    const taskPath: string = this.pendingTask;
+    if (taskPath === '') {
+      this.context.getApplicationContext().eventHub.emit('huiwen.workspace.ready');
+      return;
+    }
+    this.restoring = true;
+    try {
+      // 只传任务标识，实际文件路径由 C++ 重新校验；读取阶段不更新时间。
+      const document: HarmonySandboxDocument = await nativeBridge.harmonyLoadTask(
+        this.context.getApplicationContext().filesDir, taskPath);
+      if (this.destroyed || this.pendingTask !== taskPath) {
+        return;
+      }
+      const reply: WorkspaceReply = {
+        action: 'restore', name: document.name, kind: document.kind, mode: document.mode,
+        taskPath: document.taskPath, inputPath: document.inputPath, outputPath: document.outputPath,
+        openPath: document.openPath, lastUsedAt: document.lastUsedAt, error: ''
+      };
+      nativeBridge.workspaceReply(JSON.stringify(reply));
+    } catch (error) {
+      if (!this.destroyed && this.pendingTask === taskPath) {
+        this.pendingTask = '';
+        this.restoring = false;
+        const message: string = (error as Error).message;
+        hilog.error(0xFF00, 'QtWorkspace', 'HUIWEN_QT_RESTORE_FAILED: %{public}s', message);
+        this.context.getApplicationContext().eventHub.emit('huiwen.workspace.failed', message);
+      }
+    }
+  }
 
   // QPA 调用本方法后写入 idName，并把存储传给固定的 pages/Index 承载页。
   newLocalStorage(): LocalStorage {
@@ -56,7 +108,24 @@ export default class QtWorkspaceAbility extends UIAbility {
     if (event.action === 'ready') {
       this.workspaceReady = true;
       hilog.info(0xFF00, 'QtWorkspace', 'HUIWEN_QT_READY');
-      this.context.getApplicationContext().eventHub.emit('huiwen.workspace.ready');
+      await this.deliverPendingTask();
+      return;
+    }
+    if (event.action === 'restoreResult') {
+      const result = JSON.parse(event.path) as WorkspaceRestoreResult;
+      if (!this.restoring || result.taskPath !== this.pendingTask) {
+        return;
+      }
+      this.pendingTask = '';
+      this.restoring = false;
+      if (result.error !== '') {
+        hilog.error(0xFF00, 'QtWorkspace', 'HUIWEN_QT_RESTORE_FAILED: %{public}s', result.error);
+        this.context.getApplicationContext().eventHub.emit('huiwen.workspace.failed', result.error);
+      } else {
+        hilog.info(0xFF00, 'QtWorkspace', 'HUIWEN_QT_RESTORE_OK');
+        // Qt 已载入任务并更新时间，首页此时才结束自己的 Ability。
+        this.context.getApplicationContext().eventHub.emit('huiwen.workspace.ready');
+      }
       return;
     }
     if (event.action === 'close') {
@@ -131,16 +200,23 @@ export default class QtWorkspaceAbility extends UIAbility {
   }
 
   onDestroy(): void {
+    this.destroyed = true;
+    this.pendingTask = '';
     nativeBridge.clearWorkspace();
     this.cefProxy?.dispose();
     this.cefProxy = undefined;
   }
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
-    // 复用已有工作区时，继续由 QPA 管理窗口，并重发就绪通知结束新首页。
+    // 复用已有窗口时也重新传递任务；仅在 Qt 确认恢复后通知首页关闭。
     qpa.handleOnNewWant(want, launchParam);
+    if (this.restoring || this.pickerBusy) {
+      this.context.getApplicationContext().eventHub.emit('huiwen.workspace.failed', '工作区正在处理文件，请稍后重试');
+      return;
+    }
+    this.pendingTask = this.requestedTask(want);
     if (this.workspaceReady) {
-      this.context.getApplicationContext().eventHub.emit('huiwen.workspace.ready');
+      this.deliverPendingTask();
     }
   }
 }

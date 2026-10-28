@@ -26,6 +26,7 @@ class ConversionWindow : public QWidget
     void refreshBusyState();
     void refreshScrollSync();
     void selectDocument();
+    void restoreDocument(const DocumentItem &document);
     QSplitter *splitter_;
     SourceDocumentView *source_;
     MarkdownResultView *result_;

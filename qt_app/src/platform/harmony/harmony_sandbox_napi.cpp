@@ -1,4 +1,4 @@
-/* 鸿蒙沙箱 NAPI：异步导入与查询，提供文件/任务目录校验、编辑缓存及使用时间更新。 */
+/* 鸿蒙沙箱 NAPI：异步导入、查询和任务恢复，提供路径校验、编辑缓存及使用时间更新。 */
 #include "harmony_sandbox.h"
 #ifdef Q_OS_OPENHARMONY
 #include "sandbox/SandboxStore.h"
@@ -15,7 +15,8 @@ enum class Operation
 {
     Import,
     Recent,
-    FindEdits
+    FindEdits,
+    LoadTask
 };
 
 struct SandboxWork
@@ -98,8 +99,10 @@ void execute(napi_env, void *data)
                 HarmonySandbox::importDocument(task->root, task->name, task->fd, task->kind, task->mode);
         else if (task->operation == Operation::Recent)
             task->documents = SandboxStore::recentDocuments(task->root, task->mode, task->limit);
-        else
+        else if (task->operation == Operation::FindEdits)
             task->documents = SandboxStore::findEditDocuments(task->root, task->name);
+        else
+            task->document = SandboxStore::loadTask(task->root, task->name);
     }
     catch (const std::exception &error)
     {
@@ -113,7 +116,7 @@ void complete(napi_env env, napi_status status, void *data)
     if (status == napi_ok && task->error.empty())
     {
         napi_value result;
-        if (task->operation == Operation::Import)
+        if (task->operation == Operation::Import || task->operation == Operation::LoadTask)
             result = documentValue(env, task->document);
         else
         {
@@ -203,6 +206,21 @@ napi_value recentDocuments(napi_env env, napi_callback_info info)
     return queryDocuments(env, info, false);
 }
 
+napi_value loadTask(napi_env env, napi_callback_info info)
+{
+    size_t count = 2;
+    napi_value values[2];
+    auto task = std::make_unique<SandboxWork>();
+    if (napi_get_cb_info(env, info, &count, values, nullptr, nullptr) != napi_ok || count != 2 ||
+        !readString(env, values[0], task->root) || !readString(env, values[1], task->name))
+    {
+        napi_throw_type_error(env, "HARMONY_SANDBOX_INVALID_ARGUMENT", "恢复任务需要沙箱根目录和任务目录");
+        return nullptr;
+    }
+    task->operation = Operation::LoadTask;
+    return queue(env, std::move(task));
+}
+
 napi_value findEditCaches(napi_env env, napi_callback_info info)
 {
     return queryDocuments(env, info, true);
@@ -269,6 +287,7 @@ void InitHarmonySandbox(napi_env env, napi_value exports)
          napi_default, nullptr},
         {"harmonyRecentDocuments", nullptr, recentDocuments, nullptr, nullptr, nullptr, napi_default,
          nullptr},
+        {"harmonyLoadTask", nullptr, loadTask, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"harmonyFindEditCaches", nullptr, findEditCaches, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"harmonyMarkUsed", nullptr, markUsed, nullptr, nullptr, nullptr, napi_default, nullptr},
     };
