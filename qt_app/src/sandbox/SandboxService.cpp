@@ -126,3 +126,30 @@ void SandboxService::openResultLocation(const QString &path)
         emit failed(QStringLiteral("无法打开输出目录"));
 #endif
 }
+
+void SandboxService::openTaskDirectory(const DocumentItem &document, bool output)
+{
+    if (document.taskPath.isEmpty() || document.inputPath.isEmpty())
+    {
+        emit failed(QStringLiteral("请先选择 PDF"));
+        return;
+    }
+    const QString path = document.taskPath + (output ? "/output" : "/input");
+#ifdef Q_OS_OPENHARMONY
+    // ArkTS 使用自己的 filesDir 再经 NAPI 校验目录归属后调用系统文件管理器。
+    if (!QtBridge::instance().request("openDirectory", path))
+        emit failed(QStringLiteral("鸿蒙任务目录接口尚未就绪"));
+#else
+    try
+    {
+        const QString root = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+        const QString directory = SandboxStore::validateTaskDirectory(root, path);
+        if (!QDesktopServices::openUrl(QUrl::fromLocalFile(directory)))
+            emit failed(QStringLiteral("无法打开任务目录"));
+    }
+    catch (const std::exception &error)
+    {
+        emit failed(QString::fromUtf8(error.what()));
+    }
+#endif
+}

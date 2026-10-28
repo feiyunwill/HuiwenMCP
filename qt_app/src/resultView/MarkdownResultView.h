@@ -1,9 +1,8 @@
-/* Markdown 输出区域：先显示文件卡片，点击预览后切换正文。 */
+/* Markdown 输出区域：由外部切换卡片或只读正文，不持有预览及目录操作按钮。 */
 #pragma once
 #include <QWidget>
 class FileCard;
 class MarkdownPreviewWidget;
-class QPushButton;
 class QStackedWidget;
 
 class MarkdownResultView : public QWidget
@@ -12,6 +11,7 @@ class MarkdownResultView : public QWidget
   public:
     explicit MarkdownResultView(QWidget *parent = nullptr);
     void setResultFile(const QString &path);
+    void setPreviewMode(bool preview);
     bool isPreviewReady() const;
     void setScrollPosition(int page, double fraction, double progress);
   signals:
@@ -21,9 +21,8 @@ class MarkdownResultView : public QWidget
 
   private:
     FileCard *card_;
-    QWidget *toolbar_;
-    QPushButton *previewButton_;
     QStackedWidget *stack_;
     MarkdownPreviewWidget *preview_;
     QString path_;
+    bool previewMode_ = false;
 };

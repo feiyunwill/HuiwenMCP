@@ -16,4 +16,6 @@ class SandboxStore
     static void markUsed(const QString &filesDir, const QString &path);
     static void markUsed(const DocumentItem &document);
     static QString validateOutput(const QString &filesDir, const QString &path);
+    // 仅接受 edit/convert 当前任务下真实存在的 input 或 output 目录，不要求已有输出文件。
+    static QString validateTaskDirectory(const QString &filesDir, const QString &path);
 };

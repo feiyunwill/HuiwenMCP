@@ -1,27 +1,18 @@
-/* 输出区域实现；未转换显示提示，成功后显示 MD 占位图和文件名。 */
+/* 输出区域由文件菜单控制展示方式；未转换保持提示，生成结果后按当前查看方式展示。 */
 #include "MarkdownResultView.h"
 #include "MarkdownPreviewWidget.h"
 #include "components/FileCard.h"
 #include <QFileInfo>
-#include <QHBoxLayout>
 #include <QStackedWidget>
 #include <QVBoxLayout>
 #include <QScrollArea>
 
 MarkdownResultView::MarkdownResultView(QWidget *parent)
-    : QWidget(parent), card_(new FileCard(this)), toolbar_(new QWidget(this)),
-      previewButton_(new QPushButton(QStringLiteral("预览"), toolbar_)), stack_(new QStackedWidget(this)),
+    : QWidget(parent), card_(new FileCard(this)), stack_(new QStackedWidget(this)),
       preview_(new MarkdownPreviewWidget(stack_))
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    auto *tools = new QHBoxLayout(toolbar_);
-    tools->setContentsMargins(24, 16, 24, 0);
-    tools->addWidget(previewButton_);
-    auto *openButton = new QPushButton(QStringLiteral("打开所在目录"), toolbar_);
-    tools->addWidget(openButton);
-    tools->addStretch();
-    layout->addWidget(toolbar_);
     auto *scroll = new QScrollArea(this);
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
@@ -47,22 +38,6 @@ MarkdownResultView::MarkdownResultView(QWidget *parent)
             &MarkdownResultView::previewReadyChanged);
     connect(preview_, &MarkdownPreviewWidget::scrollPositionChanged, this,
             &MarkdownResultView::scrollPositionChanged);
-    connect(openButton, &QPushButton::clicked, this, [this] { emit locationRequested(path_); });
-    connect(previewButton_, &QPushButton::clicked, this,
-            [this]
-            {
-                if (stack_->currentWidget() == preview_)
-                {
-                    stack_->setCurrentIndex(0);
-                    previewButton_->setText(QStringLiteral("预览"));
-                }
-                else if (!path_.isEmpty())
-                {
-                    preview_->setDocument(path_);
-                    stack_->setCurrentWidget(preview_);
-                    previewButton_->setText(QStringLiteral("返回文件"));
-                }
-            });
 }
 
 void MarkdownResultView::setResultFile(const QString &path)
@@ -70,14 +45,25 @@ void MarkdownResultView::setResultFile(const QString &path)
     path_ = path;
     stack_->setCurrentIndex(0);
     preview_->setDocument({});
-    toolbar_->setVisible(!path.isEmpty());
-    previewButton_->setText(QStringLiteral("预览"));
     if (path.isEmpty())
         card_->setPrompt(QStringLiteral("待转化 PDF"), false);
     else
     {
         card_->setFile(QStringLiteral("MD"), QFileInfo(path).fileName());
         card_->setEnabled(true);
+    }
+    setPreviewMode(previewMode_);
+}
+
+void MarkdownResultView::setPreviewMode(bool preview)
+{
+    previewMode_ = preview;
+    if (!preview || path_.isEmpty())
+        stack_->setCurrentIndex(0);
+    else if (stack_->currentWidget() != preview_)
+    {
+        preview_->setDocument(path_);
+        stack_->setCurrentWidget(preview_);
     }
 }
 

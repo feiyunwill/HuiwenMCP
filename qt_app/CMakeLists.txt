@@ -19,6 +19,8 @@ set(workspace_sources
     src/components/FileCard.cpp
     src/components/ConvertButton.cpp
     src/components/functionBar/FunctionBar.cpp
+    src/components/functionBar/FileMenu.cpp
+    src/components/functionBar/SelectionMenu.cpp
     src/services/ConversionService.cpp
     src/sandbox/SandboxService.cpp)
 if(CMAKE_SYSTEM_NAME STREQUAL "OHOS")

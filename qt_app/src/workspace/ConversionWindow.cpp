@@ -1,6 +1,7 @@
 /* 转换工作区：左右独立区域、可拖动分隔线，以及跟随分隔线的悬浮转化按钮。 */
 #include "ConversionWindow.h"
 #include "components/ConvertButton.h"
+#include "components/functionBar/FileMenu.h"
 #include "components/functionBar/FunctionBar.h"
 #include "resultView/MarkdownResultView.h"
 #include "sandbox/SandboxService.h"
@@ -17,7 +18,7 @@
 
 ConversionWindow::ConversionWindow(QWidget *parent)
     : QWidget(parent), splitter_(new QSplitter(Qt::Horizontal, this)), source_(new SourceDocumentView),
-      result_(new MarkdownResultView), button_(new ConvertButton(this)),
+      result_(new MarkdownResultView), button_(new ConvertButton(this)), functionBar_(new FunctionBar(this)),
       conversion_(new ConversionService(this)), sandbox_(new SandboxService(this)), status_(new QLabel(this)),
       scrollSync_(new QCheckBox(QStringLiteral("同步滚动"), this))
 {
@@ -40,8 +41,8 @@ ConversionWindow::ConversionWindow(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    layout->addWidget(new FunctionBar(this));
-    // 新菜单本阶段只展示；旧控件隐藏并保留原有同步行为，后续接入设置时再替换。
+    layout->addWidget(functionBar_);
+    // 滚动设置暂未接入；隐藏旧控件并保留原有同步行为。
     scrollSync_->hide();
     scrollSync_->setChecked(true);
     scrollSync_->setEnabled(false);
@@ -82,12 +83,21 @@ ConversionWindow::ConversionWindow(QWidget *parent)
                 if (scrollSync_->isEnabled() && scrollSync_->isChecked())
                     source_->setScrollPosition(page, fraction, progress);
             });
-    connect(source_, &SourceDocumentView::selectionRequested, this,
-            [this]
+    connect(source_, &SourceDocumentView::selectionRequested, this, &ConversionWindow::selectDocument);
+    connect(functionBar_->fileMenu(), &FileMenu::replacementRequested, this,
+            &ConversionWindow::selectDocument);
+    connect(functionBar_->fileMenu(), &FileMenu::previewModeRequested, this,
+            [this](bool preview)
             {
-                picking_ = true;
-                refreshBusyState();
-                sandbox_->selectPdf();
+                source_->setPreviewMode(preview);
+                result_->setPreviewMode(preview);
+                refreshScrollSync();
+                placeConvertButton();
+            });
+    connect(functionBar_->fileMenu(), &FileMenu::directoryRequested, this,
+            [this](bool output)
+            {
+                sandbox_->openTaskDirectory(document_, output);
             });
     connect(sandbox_, &SandboxService::documentSelected, this,
             [this](const DocumentItem &document)
@@ -167,8 +177,18 @@ void ConversionWindow::placeConvertButton()
 void ConversionWindow::refreshBusyState()
 {
     source_->setBusy(picking_ || converting_);
+    functionBar_->fileMenu()->setDocumentState(!document_.inputPath.isEmpty(), picking_ || converting_);
     button_->setState(!document_.inputPath.isEmpty(), picking_ || converting_, retry_);
     placeConvertButton();
+}
+
+void ConversionWindow::selectDocument()
+{
+    if (picking_ || converting_)
+        return;
+    picking_ = true;
+    refreshBusyState();
+    sandbox_->selectPdf();
 }
 
 void ConversionWindow::refreshScrollSync()

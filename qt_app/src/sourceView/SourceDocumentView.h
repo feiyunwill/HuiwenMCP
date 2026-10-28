@@ -5,7 +5,6 @@
 #include <QWidget>
 class FileCard;
 class PdfPreviewWidget;
-class QPushButton;
 class QStackedWidget;
 
 class SourceDocumentView : public QWidget
@@ -15,6 +14,7 @@ class SourceDocumentView : public QWidget
     explicit SourceDocumentView(QWidget *parent = nullptr);
     void setDocuments(const QVector<DocumentItem> &documents);
     void setBusy(bool busy);
+    void setPreviewMode(bool preview);
     bool isPreviewReady() const;
     void setScrollPosition(int page, double fraction, double progress);
     void publishScrollPosition();
@@ -26,10 +26,8 @@ class SourceDocumentView : public QWidget
 
   private:
     FileCard *card_;
-    QWidget *toolbar_;
-    QPushButton *previewButton_;
-    QPushButton *replaceButton_;
     QStackedWidget *stack_;
     PdfPreviewWidget *preview_;
     QString inputPath_;
+    bool previewMode_ = false;
 };

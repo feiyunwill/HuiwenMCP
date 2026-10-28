@@ -17,7 +17,7 @@
 - Qt 开发依赖保存在 `third_party/qt/`，运行库从 `entry/libs/arm64-v8a/` 链接并随 HAP 分发；PDFium fork 保存在 `third_party/pdfium/`，Qt 左侧输入区域已接入其公开 C API 实现正文预览；已完成鸿蒙编译、HAP 打包；系统目录跳转沿用原有实现。
 - DevEco Run 构建前执行 `PrepareNativeDependencies`，按当前 PDFium 源码增量生成 `libpdfium.so`；Qt/NAPI 的 C++ 编译后同步新库到 `libs`。没有保存源码自动构建、应用内动态替换库或保持进程状态的热重载。
 - Qt 工作区默认最大化并保留系统标题栏和窗口边框，输入、输出区域解耦；中部分割线可拖动，悬浮“转化”按钮随分隔线移动。
-- 输入文件卡片通过 DocumentStore 获取系统选取授权，再经 NAPI 调用 C++ harmony_sandbox 完成沙箱复制和路径安排。导入成功后上方显示“预览”和“更换文件”，点击“预览”才切换为多页正文；支持滚动，随窗口/分栏宽度等比排版并重新渲染，可返回文件卡片。PDFium 后台串行渲染可见页，连续尺寸变化合并请求；位图缓存上限为 64 MiB，超长页面降低采样分辨率。Qt ConversionService 仍复用 PythonRunner 转换；右侧成功后先显示 MD 文件卡片，点击“预览”后由 CEF 显示正文，可返回文件或打开所在目录。MD 接入尚未编译、打包或真机验收。
+- 输入文件卡片通过 DocumentStore 获取系统选取授权，再经 NAPI 调用 C++ harmony_sandbox 完成沙箱复制和路径安排。两侧操作统一到顶部“文件”菜单：查看模式在占位图与预览之间切换；左侧由 PDFium 显示多页 PDF，右侧已有结果时由 CEF 显示 MD。更换文件保留当前查看方式，清空旧结果；尚未生成 MD 时仍显示等待提示。PDFium 后台串行渲染可见页，连续尺寸变化合并请求；位图缓存上限为 64 MiB，超长页面降低采样分辨率。Qt ConversionService 仍复用 PythonRunner 转换。本次菜单迁移和目录入口仅做格式检查，尚未编译、打包或真机验收。
 - 原有 Python HNP 自检与 PDF 转换已由用户在真机验证成功。新增 Qt 窗口交接、选择与结果位置操作需要真机验收。
 - 汇文 Python 包只公开 `pdf_to_md()`；后续格式在依赖和设备转换通过后再增加。
 
@@ -70,7 +70,11 @@ HuiWenMCP/
 │       ├── resultView/MarkdownResultView.h/.cpp 输出区域入口
 │       ├── components/
 │       │   ├── FileCard.h/.cpp         PDF/MD 共用占位卡片
-│       │   └── ConvertButton.h/.cpp    独立悬浮转化按钮
+│       │   ├── ConvertButton.h/.cpp    独立悬浮转化按钮
+│       │   └── functionBar/
+│       │       ├── FunctionBar.h/.cpp 顶部“文件”和“滚动设置”入口
+│       │       ├── FileMenu.h/.cpp    查看方式、任务目录及当前业务模式菜单
+│       │       └── SelectionMenu.h/.cpp 共用菜单样式、右侧蓝点与子菜单箭头
 │       ├── services/ConversionService.h/.cpp    异步 PDF 转 MD API
 │       ├── sandbox/
 │       │   ├── DocumentItem.h         格式、路径、归档目录、缓存打开路径和使用时间
@@ -130,6 +134,32 @@ HuiWenMCP/
 - `platform/harmony/harmony_sandbox.h/.cpp` 负责鸿蒙 fd 复制；NAPI 同步复制授权 fd 并设置子进程不继承，在工作线程以独立偏移分块读取，成功、失败和排队失败都释放 fd。`harmony_sandbox_napi.cpp` 的目录扫描也在工作线程运行。
 - `harmonyImportDocument(filesDir, name, fd, kind, mode)` 返回 `Promise<HarmonySandboxDocument>`；`mode` 为 `preview`、`edit`、`convert`，取代原有布尔转换标记。支持 PDF、MD/Markdown、Word 导入归档；当前正式转换接口仍仅接 PDF→MD，归档支持 Word 不表示已经接入 Word 预览、编辑或转换。
 - `harmonyValidateOutput(filesDir, path)` 接受新任务的 `convert|edit/<任务>/output/*.md`，兼容历史 `outputs/` 下的文件；仍检查真实路径、目录归属及非空可读 MD。历史数据保留原位，不批量迁移。
+- `harmonyValidateTaskDirectory(filesDir, path)` 直接复用 `SandboxStore::validateTaskDirectory()`，只接受真实可读且不含符号链接或路径别名的 `edit|convert/<任务>/input|output` 目录。与 MD 文件校验分开，因此选取 PDF 后即可请求打开空输出目录；鸿蒙经 `openDirectory` 工作区事件调用系统文件管理器，桌面使用 `QDesktopServices`。
+
+## Qt 文件菜单
+
+顶部灰色功能条由 `FunctionBar` 组装，`FileMenu` 只维护菜单状态、发出请求，`ConversionWindow` 负责协调预览和沙箱服务；两侧区域不持有“预览／返回文件、更换文件、打开所在目录”工具按钮。`SelectionMenu` 统一绘制右侧 `#3983F7` 蓝点（直径 14px，圆心距菜单项右边缘 24px），子菜单箭头放在更靠右的位置，文件菜单与滚动设置保持对齐。
+
+```text
+文件
+├── 查看模式
+│   ├── 占位图模式（默认）
+│   ├── 预览模式
+│   └── 编辑模式（禁用，TODO）
+├── 文件目录
+│   ├── 输入目录
+│   └── 输出目录
+└── 切换模式
+    ├── 预览模式（禁用，TODO）
+    ├── 编辑模式（禁用，TODO）
+    └── 转化模式（当前，右侧蓝点）
+        └── 更换文件
+```
+
+- 查看模式同时控制左右区域；未选择 PDF 时不能进入预览，未生成 MD 时右侧继续显示等待提示。选择新文件、开始转换、转换成功不会重置用户选中的查看方式。
+- 仅当前“转化模式”拥有更换入口；取消保留原任务，选取成功创建新任务并清空旧结果。选择或转换期间禁用查看方式切换与更换文件，避免任务串线。其他业务模式和编辑视图只保留 TODO，没有接入业务切换。
+- 输入、输出目录均定位当前任务下的目录，未选择 PDF 时禁用；系统文件管理器是否准确定位仍需真机确认。原 MD 文件卡片的目录跳转继续使用非空文件校验。
+- 滚动设置仍只记录菜单选中状态，本次未迁移隐藏的旧同步控件或接入新的滚动策略。
 
 ## 沙箱文件路径
 
@@ -292,7 +322,7 @@ hvigorw assembleHap --mode module -p product=default -p module=entry@default
 
 1. 点击 ArkTS 首页“文档转化”，再点击独立格式选择窗口中的“PDF → MD”，格式子窗口关闭后打开 Qt；Qt 默认最大化并保留系统标题栏、窗口边框及窗口控制按钮。查看 `QtWorkspace` 标签下的 `HUIWEN_QT_START`、`HUIWEN_QT_READY`，确认只有 `EntryAbility` 随后结束，`QtWorkspaceAbility` 保持运行；不应再出现 `newLocalStorage not found`、`Need object`。
 2. 左右文档区域占满状态栏上方的可用高度，底部状态栏保持紧凑；还原窗口并调整大小时布局应同步变化。悬停中间细线出现水平分割光标；拖动改变两侧宽度，底部小型“转化”按钮保持居中在线上。
-3. 点击左侧虚线加号选择 PDF，取消应保留原状态；选取后显示 PDF 占位图和原文件名，上方出现“预览”和“更换文件”。点击“预览”应显示正文，滚动可查看后续页；拖动分隔线或缩放窗口后，页面应按当前可用宽度等比重排并重新渲染。“返回文件”回到卡片；更换文件后回到卡片，从新文件第一页开始预览。损坏、加密文件应提示原因。
+3. 点击左侧虚线加号选择 PDF，取消应保留原状态；选取后显示 PDF 占位图和原文件名。通过“文件 → 查看模式”切换占位图或预览，预览时左侧显示 PDF、右侧已有结果时显示 MD；拖动分隔线或缩放窗口后，页面应按当前可用宽度重排。“文件 → 切换模式 → 转化模式 → 更换文件”应保留查看方式、清空旧 MD，从新 PDF 第一页开始预览。选择或转换期间不得重复更换；损坏、加密文件应提示原因。两侧不再显示旧工具按钮。
 4. 点击“转化”，操作期间不能重复选择或提交。成功后右侧显示 MD 占位图和输出文件名，底部显示 `code=0`、成功提示和完整路径；失败显示错误码及处理建议，按钮变为“重新转化”。重试期间禁用按钮，成功后恢复“转化”；更换文件恢复初始状态，取消选择保留原状态。
 5. 转换成功后底部显示完整 MD 路径；点击 MD 卡片，沿用系统文件管理器打开文件夹，文件夹内能看到真实 MD。不存在、为空或不可读取的结果应在跳转前明确报错，不能误报转换成功。
 6. 日志搜索 `HUIWEN_OUTPUT`：`import_success` 为导入落盘路径，`convert_start` 为输入/输出路径，`verified` 为磁盘验证及字节数，`convert_success` 为成功通知，`locate_start` 为点击时重新检查，`locate_requested` 为鸿蒙桥接已提交。系统跳转结果继续查看原有 `HUIWEN_QT_OPEN_REQUEST`、`HUIWEN_QT_OPEN_REQUEST_ACCEPTED` 或 `HUIWEN_QT_OPEN_FAILED`。

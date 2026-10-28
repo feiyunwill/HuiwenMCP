@@ -1,4 +1,4 @@
-/* 文件选择和输出位置的统一入口；鸿蒙规则由 harmony_sandbox 实现。 */
+/* 文件选择、结果位置和任务目录的统一入口；路径规则复用通用 SandboxStore。 */
 #pragma once
 #include "DocumentItem.h"
 #include <QObject>
@@ -10,6 +10,7 @@ class SandboxService : public QObject
     explicit SandboxService(QObject *parent = nullptr);
     void selectPdf();
     void openResultLocation(const QString &path);
+    void openTaskDirectory(const DocumentItem &document, bool output);
     void markUsed(const DocumentItem &document);
   signals:
     void documentSelected(const DocumentItem &document);

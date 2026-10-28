@@ -1,26 +1,17 @@
-/* 输入区域：导入后保留文件卡片，由顶部按钮切换 PDF 正文预览。 */
+/* 输入区域只显示文件卡片或 PDF 正文；查看方式和更换入口由顶部文件菜单统一控制。 */
 #include "SourceDocumentView.h"
 #include "PdfPreviewWidget.h"
 #include "components/FileCard.h"
-#include <QHBoxLayout>
 #include <QStackedWidget>
 #include <QVBoxLayout>
 #include <QScrollArea>
 
 SourceDocumentView::SourceDocumentView(QWidget *parent)
-    : QWidget(parent), card_(new FileCard(this)), toolbar_(new QWidget(this)),
-      previewButton_(new QPushButton(QStringLiteral("预览"), toolbar_)),
-      replaceButton_(new QPushButton(QStringLiteral("更换文件"), toolbar_)),
-      stack_(new QStackedWidget(this)), preview_(new PdfPreviewWidget(stack_))
+    : QWidget(parent), card_(new FileCard(this)), stack_(new QStackedWidget(this)),
+      preview_(new PdfPreviewWidget(stack_))
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    auto *tools = new QHBoxLayout(toolbar_);
-    tools->setContentsMargins(24, 16, 24, 0);
-    tools->addWidget(previewButton_);
-    tools->addWidget(replaceButton_);
-    tools->addStretch();
-    layout->addWidget(toolbar_);
     auto *scroll = new QScrollArea(this);
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
@@ -46,27 +37,11 @@ SourceDocumentView::SourceDocumentView(QWidget *parent)
             &SourceDocumentView::previewReadyChanged);
     connect(preview_, &PdfPreviewWidget::scrollPositionChanged, this,
             &SourceDocumentView::scrollPositionChanged);
-    connect(replaceButton_, &QPushButton::clicked, this, &SourceDocumentView::selectionRequested);
     connect(preview_, &PdfPreviewWidget::documentOpened, this,
             [this](const QString &path)
             {
                 if (path == inputPath_)
                     emit documentOpened();
-            });
-    connect(previewButton_, &QPushButton::clicked, this,
-            [this]
-            {
-                if (stack_->currentWidget() == preview_)
-                {
-                    stack_->setCurrentIndex(0);
-                    previewButton_->setText(QStringLiteral("预览"));
-                }
-                else if (!inputPath_.isEmpty())
-                {
-                    preview_->setDocument(inputPath_);
-                    stack_->setCurrentWidget(preview_);
-                    previewButton_->setText(QStringLiteral("返回文件"));
-                }
             });
 }
 
@@ -75,19 +50,28 @@ void SourceDocumentView::setDocuments(const QVector<DocumentItem> &documents)
     stack_->setCurrentIndex(0);
     preview_->setDocument({});
     inputPath_ = documents.isEmpty() ? QString() : documents.first().inputPath;
-    toolbar_->setVisible(!inputPath_.isEmpty());
-    previewButton_->setText(QStringLiteral("预览"));
     if (documents.isEmpty())
         card_->setPrompt(QStringLiteral("请选择 PDF"), true);
     else
         card_->setFile(documents.first().kind, documents.first().name);
+    setPreviewMode(previewMode_);
 }
 
 void SourceDocumentView::setBusy(bool busy)
 {
     card_->setEnabled(!busy);
-    previewButton_->setEnabled(!busy && !inputPath_.isEmpty());
-    replaceButton_->setEnabled(!busy);
+}
+
+void SourceDocumentView::setPreviewMode(bool preview)
+{
+    previewMode_ = preview;
+    if (!preview || inputPath_.isEmpty())
+        stack_->setCurrentIndex(0);
+    else if (stack_->currentWidget() != preview_)
+    {
+        preview_->setDocument(inputPath_);
+        stack_->setCurrentWidget(preview_);
+    }
 }
 
 bool SourceDocumentView::isPreviewReady() const { return preview_->isPreviewReady(); }

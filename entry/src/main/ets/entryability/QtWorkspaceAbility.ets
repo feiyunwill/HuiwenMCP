@@ -87,6 +87,11 @@ export default class QtWorkspaceAbility extends UIAbility {
         }
       } else if (event.action === 'open') {
         await this.openOutputLocation(event.path);
+      } else if (event.action === 'openDirectory') {
+        // 顶部文件菜单只打开当前任务目录，路径仍由通用 C++ 沙箱规则校验。
+        const directory: string = nativeBridge.harmonyValidateTaskDirectory(
+          this.context.getApplicationContext().filesDir, event.path);
+        await this.openFileManager(directory);
       }
     } catch (error) {
       reply.error = (error as Error).message;
@@ -102,12 +107,17 @@ export default class QtWorkspaceAbility extends UIAbility {
   private async openOutputLocation(path: string): Promise<void> {
     const outputPath: string = nativeBridge.harmonyValidateOutput(
       this.context.getApplicationContext().filesDir, path);
-    const uri: string = fileUri.getUriFromPath(outputPath);
+    await this.openFileManager(outputPath);
+  }
+
+  // 文件卡片传入已验证文件，目录菜单传入已验证目录，共用系统文件管理器入口。
+  private async openFileManager(path: string): Promise<void> {
+    const uri: string = fileUri.getUriFromPath(path);
     const options: OpenLinkOptions = {
       parameters: { fileUri: uri }
     };
-    hilog.info(0xFF00, 'QtWorkspace', 'HUIWEN_QT_OPEN_REQUEST: file=%{public}s, uri=%{public}s',
-      outputPath, uri);
+    hilog.info(0xFF00, 'QtWorkspace', 'HUIWEN_QT_OPEN_REQUEST: path=%{public}s, uri=%{public}s',
+      path, uri);
     try {
       await this.context.openLink('filemanager://openDirectory', options);
       // Promise 完成只表示拉起请求成功，目录定位效果仍需真机确认。
@@ -116,7 +126,7 @@ export default class QtWorkspaceAbility extends UIAbility {
       const failure = error as BusinessError;
       hilog.error(0xFF00, 'QtWorkspace', 'HUIWEN_QT_OPEN_FAILED: code=%{public}d, message=%{public}s',
         failure.code, failure.message);
-      throw new Error(`无法打开 Markdown 所在目录（${failure.code}）：${failure.message}`);
+      throw new Error(`无法打开文件目录（${failure.code}）：${failure.message}`);
     }
   }
 

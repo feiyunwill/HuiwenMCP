@@ -283,3 +283,18 @@ QString SandboxStore::validateOutput(const QString &filesDir, const QString &pat
         checkedTask(root, canonical);
     return output.absoluteFilePath();
 }
+
+QString SandboxStore::validateTaskDirectory(const QString &filesDir, const QString &path)
+{
+    const QString root = rootPath(filesDir);
+    const QFileInfo directory(path);
+    if (!directory.isAbsolute() || !directory.isDir() || !directory.isReadable() || directory.isSymLink() ||
+        directory.canonicalFilePath() != path)
+        fail(QStringLiteral("任务目录不存在、不可读取或包含路径别名"));
+    const QString task = checkedTask(root, path);
+    const QString mode = QFileInfo(QFileInfo(task).absolutePath()).fileName();
+    const QString leaf = QDir(task).relativeFilePath(path);
+    if ((mode != "edit" && mode != "convert") || (leaf != "input" && leaf != "output"))
+        fail(QStringLiteral("仅允许打开本应用任务的输入或输出目录"));
+    return path;
+}

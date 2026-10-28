@@ -18,6 +18,8 @@ interface HuiwenNative {
   harmonyImportDocument(filesDir: string, name: string, fd: number, kind: string,
     mode: string): Promise<HarmonySandboxDocument>;
   harmonyValidateOutput(filesDir: string, path: string): string;
+  // 校验任务的 input/output 目录；转换前也能打开已创建的空输出目录。
+  harmonyValidateTaskDirectory(filesDir: string, path: string): string;
   // 后台读取三类目录，以最近使用时间降序返回；mode 为 all/preview/edit/convert。
   harmonyRecentDocuments(filesDir: string, mode: string, limit: number): Promise<HarmonySandboxDocument[]>;
   // 返回所有同名编辑缓存，openPath 优先指向已有 output，查询本身不修改时间。

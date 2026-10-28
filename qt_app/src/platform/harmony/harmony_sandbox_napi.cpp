@@ -1,4 +1,4 @@
-/* 鸿蒙沙箱 NAPI：异步导入和查询，暴露最近记录、同名编辑缓存及使用时间更新。 */
+/* 鸿蒙沙箱 NAPI：异步导入与查询，提供文件/任务目录校验、编辑缓存及使用时间更新。 */
 #include "harmony_sandbox.h"
 #ifdef Q_OS_OPENHARMONY
 #include "sandbox/SandboxStore.h"
@@ -208,7 +208,14 @@ napi_value findEditCaches(napi_env env, napi_callback_info info)
     return queryDocuments(env, info, true);
 }
 
-napi_value pathOperation(napi_env env, napi_callback_info info, bool touch)
+enum class PathOperation
+{
+    ValidateOutput,
+    ValidateTaskDirectory,
+    MarkUsed
+};
+
+napi_value pathOperation(napi_env env, napi_callback_info info, PathOperation operation)
 {
     size_t count = 2;
     napi_value values[2];
@@ -216,13 +223,15 @@ napi_value pathOperation(napi_env env, napi_callback_info info, bool touch)
     if (napi_get_cb_info(env, info, &count, values, nullptr, nullptr) != napi_ok || count != 2 ||
         !readString(env, values[0], root) || !readString(env, values[1], path))
     {
-        napi_throw_type_error(env, "HARMONY_SANDBOX_INVALID_ARGUMENT", "需要沙箱目录和文件或任务路径");
+        napi_throw_type_error(env, "HARMONY_SANDBOX_INVALID_ARGUMENT", "需要沙箱目录和文件或目录路径");
         return nullptr;
     }
     try
     {
-        if (!touch)
+        if (operation == PathOperation::ValidateOutput)
             return stringValue(env, HarmonySandbox::validateOutput(root, path));
+        if (operation == PathOperation::ValidateTaskDirectory)
+            return stringValue(env, SandboxStore::validateTaskDirectory(root, path));
         SandboxStore::markUsed(root, path);
         napi_value result;
         napi_get_undefined(env, &result);
@@ -237,12 +246,17 @@ napi_value pathOperation(napi_env env, napi_callback_info info, bool touch)
 
 napi_value validateOutput(napi_env env, napi_callback_info info)
 {
-    return pathOperation(env, info, false);
+    return pathOperation(env, info, PathOperation::ValidateOutput);
+}
+
+napi_value validateTaskDirectory(napi_env env, napi_callback_info info)
+{
+    return pathOperation(env, info, PathOperation::ValidateTaskDirectory);
 }
 
 napi_value markUsed(napi_env env, napi_callback_info info)
 {
-    return pathOperation(env, info, true);
+    return pathOperation(env, info, PathOperation::MarkUsed);
 }
 }
 
@@ -251,6 +265,8 @@ void InitHarmonySandbox(napi_env env, napi_value exports)
     napi_property_descriptor methods[] = {
         {"harmonyImportDocument", nullptr, importDocument, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"harmonyValidateOutput", nullptr, validateOutput, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"harmonyValidateTaskDirectory", nullptr, validateTaskDirectory, nullptr, nullptr, nullptr,
+         napi_default, nullptr},
         {"harmonyRecentDocuments", nullptr, recentDocuments, nullptr, nullptr, nullptr, napi_default,
          nullptr},
         {"harmonyFindEditCaches", nullptr, findEditCaches, nullptr, nullptr, nullptr, napi_default, nullptr},

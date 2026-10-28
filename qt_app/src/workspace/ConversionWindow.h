@@ -5,6 +5,7 @@
 class SourceDocumentView;
 class MarkdownResultView;
 class ConvertButton;
+class FunctionBar;
 class ConversionService;
 class SandboxService;
 class QSplitter;
@@ -24,10 +25,12 @@ class ConversionWindow : public QWidget
     void placeConvertButton();
     void refreshBusyState();
     void refreshScrollSync();
+    void selectDocument();
     QSplitter *splitter_;
     SourceDocumentView *source_;
     MarkdownResultView *result_;
     ConvertButton *button_;
+    FunctionBar *functionBar_;
     ConversionService *conversion_;
     SandboxService *sandbox_;
     QLabel *status_;
