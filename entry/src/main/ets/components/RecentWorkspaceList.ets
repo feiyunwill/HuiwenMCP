@@ -34,7 +34,7 @@ export struct RecentWorkspaceList {
         .width(28)
         .height(28)
         .flexShrink(0)
-        .backgroundColor('#F1F3F5')
+        .backgroundColor($r('app.color.home_card'))
         .borderRadius(8)
 
         Text(workspace.name)
@@ -42,7 +42,7 @@ export struct RecentWorkspaceList {
           .constraintSize({ minWidth: 0 })
           .fontSize(14)
           .fontWeight(FontWeight.Normal)
-          .fontColor('#183153')
+          .fontColor($r('app.color.home_text'))
           .textAlign(TextAlign.Start)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -62,7 +62,7 @@ export struct RecentWorkspaceList {
             .flexShrink(0)
             .fontSize(12)
             .fontWeight(FontWeight.Normal)
-            .fontColor('#4B6080')
+            .fontColor($r('app.color.home_secondary'))
             .textAlign(TextAlign.Start)
             .maxLines(1)
           Text(workspace.timeLabel)
@@ -70,7 +70,7 @@ export struct RecentWorkspaceList {
             .flexShrink(0)
             .fontSize(11)
             .fontWeight(FontWeight.Normal)
-            .fontColor('#8994A4')
+            .fontColor($r('app.color.home_muted'))
             .textAlign(TextAlign.End)
             .maxLines(1)
         }
@@ -98,20 +98,20 @@ export struct RecentWorkspaceList {
       Text('最近工作区')
         .fontSize(16)
         .fontWeight(FontWeight.Medium)
-        .fontColor('#183153')
+        .fontColor($r('app.color.home_text'))
         .margin({ bottom: 8 })
       if (this.loading) {
         Text('正在读取最近工作区…')
           .fontSize(12)
-          .fontColor('#8994A4')
+          .fontColor($r('app.color.home_muted'))
       } else if (this.error !== '') {
         Text(this.error)
           .fontSize(12)
-          .fontColor('#B45309')
+          .fontColor($r('app.color.home_warning'))
       } else if (this.workspaces.length === 0) {
         Text('暂无最近工作区')
           .fontSize(12)
-          .fontColor('#8994A4')
+          .fontColor($r('app.color.home_muted'))
       } else {
         // 标题留在外层，只让记录滚动；少量记录按实际高度收拢，单条也能贴底。
         Scroll() {

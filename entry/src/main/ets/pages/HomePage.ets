@@ -1,15 +1,30 @@
 // ArkTS 首页独立于 QPA 固定加载的 Index 承载页，负责功能入口和窗口交接。
-import { common } from '@kit.AbilityKit';
+import { bundleManager, common } from '@kit.AbilityKit';
 import { FunctionSidebar } from '../components/FunctionSidebar';
 import { HomeFeatureCard } from '../components/HomeFeatureCard';
 import { RecentWorkspaceList } from '../components/RecentWorkspaceList';
 import { HOME_FORMAT_DIALOG_WIDTH, HomeFeature, HomeFormatDialog } from '../components/HomeFormatDialog';
 import { getNativeStatus } from '../services/ConversionService';
 import { listRecentWorkspaces, RecentWorkspace, validateRecentWorkspace } from '../services/RecentWorkspaceService';
+import { HomeMoreMenu, HOME_MENU_WIDTH, HOME_MENU_GAP } from '../components/HomeMoreMenu';
+import { HomeAboutDialog } from '../components/HomeAboutDialog';
+import { applyHomeAppearance, HomeAppearance } from '../utils/HomeAppearance';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 @Entry
 @Component
 struct HomePage {
+  @StorageLink('homeAppearance') appearance: HomeAppearance = HomeAppearance.System;
+  @State menuOpen: boolean = false;
+  @State availableWidth: number = 640;
+  @State availableHeight: number = 480;
+  @State rootLeft: number = 0;
+  @State rootTop: number = 0;
+  @State menuAnchorRight: number = 0;
+  @State menuAnchorBottom: number = 0;
+  @State appVersion: string = '';
+  private aboutDialogId: number = -1;
+  private aboutDialogOpening: boolean = false;
   @State pingResult: string = '待检测';
   @State activeFeature: HomeFeature = HomeFeature.None;
   @State workspaceError: string = '';
@@ -57,6 +72,8 @@ struct HomePage {
 
   aboutToDisappear(): void {
     this.homeVisible = false;
+    this.menuOpen = false;
+    this.closeAboutDialog();
     this.closeFormatDialog();
     clearTimeout(this.launchTimeout);
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -99,6 +116,7 @@ struct HomePage {
     }
     this.workspaceLaunching = true;
     const launchVersion = ++this.launchVersion;
+    this.menuOpen = false;
     this.workspaceError = '';
     this.launchTimeout = setTimeout(() => {
       this.workspaceFailed('未收到窗口显示通知，请检查 HUIWEN_QT 日志');
@@ -156,6 +174,7 @@ struct HomePage {
       return;
     }
     this.activeFeature = feature;
+    this.menuOpen = false;
     this.workspaceError = '';
     this.formatDialogOpening = true;
     try {
@@ -172,7 +191,7 @@ struct HomePage {
         autoCancel: true,
         // 背板与内容共用固定宽度，只由背板绘制背景、圆角及阴影。
         width: HOME_FORMAT_DIALOG_WIDTH,
-        backgroundColor: '#F7F8FA',
+        backgroundColor: $r('app.color.home_surface'),
         backgroundBlurStyle: BlurStyle.NONE,
         cornerRadius: 16,
         shadow: { radius: 16, color: '#22000000', offsetX: 0, offsetY: 6 },
@@ -196,13 +215,142 @@ struct HomePage {
 
   build() {
     // 根布局透明，只有左侧窄栏透出窗口后方；主内容自己绘制不透明背景。
-    Row() {
-      FunctionSidebar()
-      this.homeContent()
+    Stack({ alignContent: Alignment.BottomStart }) {
+      Row() {
+        FunctionSidebar({
+          menuOpen: this.menuOpen,
+          onMenuAnchorChanged: (right: number, bottom: number) => {
+            this.menuAnchorRight = right;
+            this.menuAnchorBottom = bottom;
+          },
+          onMenuRequested: () => {
+            if (!this.workspaceLaunching && this.formatDialogId < 0 && !this.formatDialogOpening &&
+              this.aboutDialogId < 0 && !this.aboutDialogOpening) {
+              this.menuOpen = !this.menuOpen;
+            }
+          }
+        })
+        this.homeContent()
+      }
+      .width('100%')
+      .height('100%')
+      if (this.menuOpen) {
+        // 背景点击层关闭两级菜单，面板阻止命中其下方的背景层。
+        Stack({ alignContent: Alignment.BottomStart }) {
+          Column()
+            .width('100%')
+            .height('100%')
+            .backgroundColor(Color.Transparent)
+            .onClick(() => this.closeMenu())
+          HomeMoreMenu({
+            appearance: this.appearance,
+            availableWidth: this.availableWidth - this.menuLeft() - 8,
+            onClose: () => this.closeMenu(),
+            onAbout: () => this.openAboutDialog(),
+            onAppearance: (mode: HomeAppearance) => this.changeAppearance(mode),
+            onPlaceholder: (name: string) => {
+              this.closeMenu();
+              this.getUIContext().getPromptAction().showToast({ message: `${name}功能暂未开放` });
+            }
+          })
+          .margin({ left: this.menuLeft(), bottom: this.menuBottom() })
+        }
+        .width('100%')
+        .height('100%')
+      }
     }
     .width('100%')
     .height('100%')
     .backgroundColor(Color.Transparent)
+    .onAreaChange((_oldArea: Area, area: Area) => {
+      this.availableWidth = Number(area.width);
+      this.availableHeight = Number(area.height);
+      this.rootLeft = Number(area.globalPosition.x);
+      this.rootTop = Number(area.globalPosition.y);
+    })
+  }
+
+  private menuLeft(): number {
+    return Math.max(8, Math.min(this.menuAnchorRight - this.rootLeft + HOME_MENU_GAP, this.availableWidth - HOME_MENU_WIDTH - 8));
+  }
+
+  private menuBottom(): number {
+    return Math.max(8, this.availableHeight - (this.menuAnchorBottom - this.rootTop));
+  }
+
+  private closeMenu(): void {
+    this.menuOpen = false;
+    try {
+      this.getUIContext().getFocusController().requestFocus('home-menu-button');
+    } catch (error) {
+      hilog.warn(0xFF00, 'HuiwenMCP', 'Restore menu button focus failed: %{public}s', (error as Error).message);
+    }
+  }
+
+  private async changeAppearance(mode: HomeAppearance): Promise<void> {
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      await applyHomeAppearance(context, mode);
+      this.appearance = mode;
+    } catch (error) {
+      this.getUIContext().getPromptAction().showToast({ message: `切换外观失败：${(error as Error).message}` });
+    }
+  }
+
+  private closeAboutDialog(): void {
+    if (this.aboutDialogId >= 0) {
+      try {
+        this.getUIContext().getPromptAction().closeCustomDialog(this.aboutDialogId);
+        this.aboutDialogId = -1;
+      } catch (error) {
+        hilog.warn(0xFF00, 'HuiwenMCP', 'Close about dialog failed: %{public}s', (error as Error).message);
+      }
+    }
+  }
+
+  @Builder
+  aboutDialogContent() {
+    HomeAboutDialog({ version: this.appVersion, onClose: () => this.closeAboutDialog() })
+  }
+
+  private async openAboutDialog(): Promise<void> {
+    this.closeMenu();
+    if (this.aboutDialogOpening || this.aboutDialogId >= 0) {
+      return;
+    }
+    this.aboutDialogOpening = true;
+    try {
+      this.appVersion = bundleManager.getBundleInfoForSelfSync(
+        bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT).versionName;
+    } catch (_) {
+      this.appVersion = '';
+    }
+    try {
+      const promptAction = this.getUIContext().getPromptAction();
+      const id = await promptAction.openCustomDialog({
+        builder: () => this.aboutDialogContent(),
+        alignment: DialogAlignment.Center,
+        width: Math.min(360, this.availableWidth - 32),
+        autoCancel: true,
+        isModal: true,
+        backgroundColor: $r('app.color.home_surface'),
+        backgroundBlurStyle: BlurStyle.NONE,
+        cornerRadius: 20,
+        onWillDismiss: (action: DismissDialogAction) => {
+          this.aboutDialogId = -1;
+          action.dismiss();
+        }
+      });
+      if (!this.homeVisible) {
+        promptAction.closeCustomDialog(id);
+        return;
+      }
+      this.aboutDialogId = id;
+    } catch (error) {
+      this.workspaceError = `打开关于窗口失败：${(error as Error).message}`;
+    } finally {
+      this.aboutDialogOpening = false;
+    }
   }
 
   @Builder
@@ -260,10 +408,10 @@ struct HomePage {
           Text('开始使用')
             .fontSize(28)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#183153')
+            .fontColor($r('app.color.home_text'))
           Text('请选择转化模式')
             .fontSize(16)
-            .fontColor('#667B98')
+            .fontColor($r('app.color.home_muted'))
 
           Row({ space: 12 }) {
             HomeFeatureCard({
@@ -297,17 +445,17 @@ struct HomePage {
           if (this.workspaceLaunching) {
             Text('正在打开转换工作区…')
               .fontSize(14)
-              .fontColor('#667B98')
+              .fontColor($r('app.color.home_muted'))
           }
           if (this.workspaceError !== '') {
             Text(this.workspaceError)
               .fontSize(13)
-              .fontColor('#B45309')
+              .fontColor($r('app.color.home_warning'))
           }
           if (this.pingResult !== 'NAPI OK') {
             Text('原生模块尚未就绪')
               .fontSize(13)
-              .fontColor('#B45309')
+              .fontColor($r('app.color.home_warning'))
           }
         }
         .width('100%')
@@ -329,12 +477,12 @@ struct HomePage {
       .padding({ top: 44, right: 24, bottom: 24, left: 24 })
       .justifyContent(FlexAlign.Start)
       .alignItems(HorizontalAlign.Start)
-      .backgroundColor('#FFFFFF')
+      .backgroundColor($r('app.color.home_surface'))
       .borderRadius(24)
     }
     .layoutWeight(1)
     .height('100%')
     .padding(24)
-    .backgroundColor('#F5F7FB')
+    .backgroundColor($r('app.color.home_background'))
   }
 }

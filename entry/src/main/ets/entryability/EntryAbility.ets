@@ -4,6 +4,7 @@ import Window from '@ohos.window'
 import Want from '@ohos.app.ability.Want';
 import hilog from '@ohos.hilog';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { initializeHomeAppearance } from '../utils/HomeAppearance';
 
 
 export default class EntryAbility extends UIAbility {
@@ -12,6 +13,11 @@ export default class EntryAbility extends UIAbility {
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
     super.onCreate(want, launchParam)
+    try {
+      initializeHomeAppearance(this.context);
+    } catch (error) {
+      hilog.warn(this.domain, this.tag, 'Restore appearance failed: %{public}s', (error as Error).message);
+    }
   }
 
   newLocalStorage() {

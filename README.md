@@ -16,7 +16,7 @@
 - 左侧介绍区上下内边距为 50vp、左右为 32vp；标题置顶，两段介绍组成间隔 20vp 的底部内容组，外层通过 `SpaceBetween` 分布并保持左对齐。
 - 介绍区背景与黑色 ∞ 使用独立 SVG：银灰底图包含左上、右下的淡化文档及斜向柔光，∞ 的反光从中心向两侧连续衰减；底图等比例铺满，符号等比例居中，文字独立叠加，整体由 24vp 圆角裁切。本次素材与布局仅做静态检查和设计渲染，尚未编译、打包或设备验收。
 - 首页右侧入口改为顶部排列，下方“最近工作区”默认展示三条任务目录记录；当前可恢复 PDF→MD 转化任务，加载原 PDF 和已有 MD，并在 Qt 载入成功后更新任务目录最近使用时间。本次最近列表、恢复与时间更新仅做格式检查，尚未编译、打包或真机验收。
-- ArkTS 首页左侧有 60vp 半透明窄侧栏，底部保留 36vp 三横线 SVG 菜单按钮，目前尚未接入菜单内容。首页内容背景与窗口容器分别设置透明，焦点态容器透明，非焦点态使用实色，右侧主内容保持不透明。
+- ArkTS 首页左侧有 60vp 半透明窄侧栏，底部 36vp 三横线 SVG 按钮可打开“关于、外观、截图、文件管理、设置”菜单。菜单通过实际布局坐标，让菜单底部与按钮底部对齐，菜单左边与按钮右边保持 8vp 间距；外观二级菜单提供浅色、深色、跟随系统，选择持久保存并应用于 ArkTS 首页和弹窗；Qt 工作区仍使用自身配色。关于弹窗读取实际应用版本号；截图、文件管理、设置本阶段只保留入口并提示暂未开放。首页内容背景与窗口容器分别设置透明，焦点态容器透明，非焦点态使用实色，右侧主内容保持不透明。
 - Qt 开发依赖保存在 `third_party/qt/`，运行库从 `entry/libs/arm64-v8a/` 链接并随 HAP 分发；PDFium fork 保存在 `third_party/pdfium/`，Qt 左侧输入区域已接入其公开 C API 实现正文预览；已完成鸿蒙编译、HAP 打包；系统目录跳转沿用原有实现。
 - DevEco Run 构建前执行 `PrepareNativeDependencies`，按当前 PDFium 源码增量生成 `libpdfium.so`；Qt/NAPI 的 C++ 编译后同步新库到 `libs`。没有保存源码自动构建、应用内动态替换库或保持进程状态的热重载。
 - Qt 工作区默认最大化并保留系统标题栏和窗口边框，输入、输出区域解耦；中部分割线可拖动，悬浮“转化”按钮随分隔线移动。
@@ -329,9 +329,9 @@ hvigorw assembleHap --mode module -p product=default -p module=entry@default
 
 ## ArkTS 首页侧栏
 
-- 侧栏固定在启动首页左侧，宽度 60vp；底部仅一个三横线按钮，尺寸 36×36vp，距底部 20vp。图标为 `resources/base/media/sidebar_menu.svg`，来自 [Feather Menu](https://github.com/feathericons/feather/blob/main/icons/menu.svg)，保留三横线几何形状并固定颜色，以 24×24vp 的 `Image` 显示；[上游 MIT 许可](entry/src/main/resources/rawfile/licenses/feather-icons-LICENSE.txt) 随 rawfile 分发。按钮保留零内边距，不依赖字符字体或文本省略行为。功能卡片显示在侧栏右侧的主区域。
+- 侧栏固定在启动首页左侧，宽度 60vp；底部仅一个三横线按钮，尺寸 36×36vp，距底部 20vp。图标为 `resources/base/media/sidebar_menu.svg`，来自 [Feather Menu](https://github.com/feathericons/feather/blob/main/icons/menu.svg)，保留三横线几何形状，颜色跟随首页外观，以 24×24vp 的 `Image` 显示；[上游 MIT 许可](entry/src/main/resources/rawfile/licenses/feather-icons-LICENSE.txt) 随 rawfile 分发。按钮保留零内边距，不依赖字符字体或文本省略行为。功能卡片显示在侧栏右侧的主区域。
 - `EntryAbility` 在页面加载后，先设置 `setWindowBackgroundColor('#00000000')`，再独立设置 `setWindowContainerColor('#00000000', '#FFF5F7FB')`；后者需要 `ohos.permission.SET_WINDOW_TRANSPARENT`，已在模块中声明。焦点态容器透明，非焦点态使用不透明底色。两个步骤各自处理异常，设置失败时保留必要错误日志，不阻断首页使用。根布局透明，侧栏背景为 `#fae5e9ec`（约 98% 不透明度），主内容背景仍为实色；只调整背景透明度，按钮保持清晰，不额外增加模糊效果。
-- 侧栏组件通过 `FunctionSidebar.onMenuRequested` 提供菜单点击入口，首页暂不绑定业务操作；Qt 转换工作区不增加侧栏。
+- 侧栏组件通过 `FunctionSidebar.onMenuRequested` 打开首页菜单，并通过 `onMenuAnchorChanged` 同步按钮锚点；Qt 转换工作区不增加侧栏。
 
 ## Qt 工作区验收
 

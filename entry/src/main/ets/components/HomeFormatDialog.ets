@@ -25,7 +25,7 @@ export struct HomeFormatDialog {
         .draggable(false)
       Text(name)
         .fontSize(14)
-        .fontColor('#4B6080')
+        .fontColor($r('app.color.home_secondary'))
     }
     .padding(12)
     .justifyContent(FlexAlign.Center)
@@ -37,7 +37,7 @@ export struct HomeFormatDialog {
         Text(this.title)
           .fontSize(18)
           .fontWeight(FontWeight.Normal)
-          .fontColor('#183153')
+          .fontColor($r('app.color.home_text'))
           .width('100%')
           .textAlign(TextAlign.Start)
         this.formatOptions()
@@ -98,7 +98,7 @@ export struct HomeFormatDialog {
           }
           Text('PDF → MD')
             .fontSize(16)
-            .fontColor('#183153')
+            .fontColor($r('app.color.home_text'))
         }
         .justifyContent(FlexAlign.Center)
       }
