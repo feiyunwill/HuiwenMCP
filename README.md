@@ -1,4 +1,4 @@
-# 汇文MCP
+# 汇文MCP · HuiwenMCP for Harmony
 
 鸿蒙 PC 上的 PDF 与 Markdown 阅读、转换应用。本阶段先把文字型 PDF 转成沙箱内的 MD 文件。
 
