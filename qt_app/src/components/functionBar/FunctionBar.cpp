@@ -6,7 +6,9 @@
 #include <QActionGroup>
 #include <QFontMetrics>
 #include <QLayout>
+#include <QStyle>
 #include <QToolButton>
+#include <QVariant>
 #include <algorithm>
 
 FunctionBar::FunctionBar(QWidget *parent) : QToolBar(parent), fileMenu_(new FileMenu(this))
@@ -22,9 +24,8 @@ FunctionBar::FunctionBar(QWidget *parent) : QToolBar(parent), fileMenu_(new File
                        "margin: 0; padding: 0; spacing: 0; }"
                        "QToolBar#workspaceFunctionBar QToolButton { background: transparent; border: none; "
                        "margin: 0; padding: 0 20px; color: #34445C; font-size: 28px; font-weight: normal; }"
-                       "QToolBar#workspaceFunctionBar QToolButton:hover { background: #E5E8ED; }"
-                       "QToolBar#workspaceFunctionBar QToolButton:pressed, "
-                       "QToolBar#workspaceFunctionBar QToolButton:checked { background: #DCE1E8; }"
+                       "QToolBar#workspaceFunctionBar QToolButton[selected=\"true\"] "
+                       "{ background: #DCE1E8; }"
                        "QToolBar#workspaceFunctionBar QToolButton::menu-indicator "
                        "{ image: none; width: 0; height: 0; }"));
     // 同时清除工具条布局的原生默认留白，按钮背景才能覆盖整个高度。
@@ -39,6 +40,25 @@ FunctionBar::FunctionBar(QWidget *parent) : QToolBar(parent), fileMenu_(new File
         button->setCursor(Qt::PointingHandCursor);
         button->setPopupMode(QToolButton::InstantPopup);
         button->setMenu(menu);
+        button->setProperty("selected", false);
+        // 背景只取决于菜单是否展开，避免关闭后残留 hover/pressed 高亮。
+        const auto setSelected = [button](bool selected)
+        {
+            button->setProperty("selected", selected);
+            button->style()->unpolish(button);
+            button->style()->polish(button);
+            button->update();
+        };
+        connect(menu, &QMenu::aboutToShow, button,
+                [setSelected]
+                {
+                    setSelected(true);
+                });
+        connect(menu, &QMenu::aboutToHide, button,
+                [setSelected]
+                {
+                    setSelected(false);
+                });
         // 先应用继承样式再测量 28px 字体，避免按默认小字号分配宽度而裁切文字。
         button->ensurePolished();
         const int textWidth = std::max(button->fontMetrics().horizontalAdvance(text),
