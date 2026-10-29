@@ -3,6 +3,58 @@
     {
       "name": "start_window_background",
       "value": "#FFFFFF"
+    },
+    {
+      "name": "home_text",
+      "value": "#202124"
+    },
+    {
+      "name": "home_muted",
+      "value": "#747980"
+    },
+    {
+      "name": "home_secondary",
+      "value": "#4B6080"
+    },
+    {
+      "name": "home_surface",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "home_background",
+      "value": "#F5F7FB"
+    },
+    {
+      "name": "home_intro",
+      "value": "#EAF2FF"
+    },
+    {
+      "name": "home_sidebar",
+      "value": "#FAE5E9EC"
+    },
+    {
+      "name": "home_menu_icon",
+      "value": "#55585C"
+    },
+    {
+      "name": "home_menu_hover",
+      "value": "#F1F1F1"
+    },
+    {
+      "name": "home_border",
+      "value": "#E2E3E5"
+    },
+    {
+      "name": "home_card",
+      "value": "#F1F3F5"
+    },
+    {
+      "name": "home_selected",
+      "value": "#708DB3"
+    },
+    {
+      "name": "home_warning",
+      "value": "#B45309"
     }
   ]
 }
