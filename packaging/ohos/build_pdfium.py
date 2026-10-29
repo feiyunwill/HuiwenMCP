@@ -14,6 +14,13 @@ import tarfile
 import urllib.request
 import zipfile
 
+if sys.version_info < (3, 9) or not hasattr(tarfile, "data_filter"):
+    raise SystemExit(
+        f"[HUIWEN_PDFIUM] 宿主 Python 不兼容：{sys.executable}（{sys.version.split()[0]}）。"
+        "需要 Python >= 3.9 且支持 tarfile 安全解压过滤，建议使用 Python 3.12+。"
+        "请通过 HOST_PYTHON 环境变量或 local.properties 中的 python.host.path "
+        "指定解释器的绝对路径后重试。")
+
 from prepare_qt import ROOT, copy_changed
 
 SOURCE = ROOT / "third_party/pdfium"
