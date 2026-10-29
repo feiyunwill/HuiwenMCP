@@ -11,6 +11,11 @@ class MarkdownResultView : public QWidget
   public:
     explicit MarkdownResultView(QWidget *parent = nullptr);
     void setResultFile(const QString &path);
+    // 结果是否已设置，与 CEF 是否完成加载无关。
+    bool hasResultFile() const
+    {
+        return !path_.isEmpty();
+    }
     void setPreviewMode(bool preview);
     bool isPreviewReady() const;
     void setScrollPosition(int page, double fraction, double progress);

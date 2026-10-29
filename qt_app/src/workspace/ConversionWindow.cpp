@@ -146,6 +146,7 @@ ConversionWindow::ConversionWindow(QWidget *parent)
                 retry_ = false;
                 sandbox_->markUsed(document_);
                 result_->setResultFile(path);
+                functionBar_->fileMenu()->setPreviewMode(true);
                 status_->setText(QStringLiteral("[code=0] %1 路径：%2").arg(message, path));
                 refreshBusyState();
             });
@@ -158,6 +159,7 @@ ConversionWindow::ConversionWindow(QWidget *parent)
                 status_->setText(QStringLiteral("[code=%1] %2").arg(code).arg(message));
                 refreshBusyState();
             });
+    functionBar_->fileMenu()->setPreviewMode(true);
 }
 
 // 待迁移到窗口基类：QPA 已将系统关闭转为 closeEvent，这里只通过 NAPI 发出返回首页请求。
@@ -186,6 +188,8 @@ bool ConversionWindow::eventFilter(QObject *watched, QEvent *event)
 
 void ConversionWindow::placeConvertButton()
 {
+    if (button_->isHidden())
+        return;
     const QPoint center = splitter_->handle(1)->mapTo(this, splitter_->handle(1)->rect().center());
     button_->move(center.x() - button_->width() / 2,
                   splitter_->mapTo(this, QPoint(0, splitter_->height())).y() - button_->height() - 72);
@@ -197,6 +201,8 @@ void ConversionWindow::refreshBusyState()
     source_->setBusy(picking_ || converting_);
     functionBar_->fileMenu()->setDocumentState(!document_.inputPath.isEmpty(), picking_ || converting_);
     button_->setState(!document_.inputPath.isEmpty(), picking_ || converting_, retry_);
+    // 仅用当前结果控制显隐：选取成功会清空结果，取消选取不会改变结果。
+    button_->setVisible(!result_->hasResultFile());
     placeConvertButton();
 }
 
@@ -229,6 +235,7 @@ void ConversionWindow::restoreDocument(const DocumentItem &document)
     source_->setDocuments({document});
     const QFileInfo output(document.outputPath);
     result_->setResultFile(output.isFile() && output.size() > 0 ? document.outputPath : QString());
+    functionBar_->fileMenu()->setPreviewMode(true);
     refreshBusyState();
     sandbox_->finishRestoration(document);
 }

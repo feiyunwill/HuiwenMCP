@@ -9,6 +9,7 @@ class FileMenu : public SelectionMenu
   public:
     explicit FileMenu(QWidget *parent = nullptr);
     void setDocumentState(bool hasDocument, bool busy);
+    void setPreviewMode(bool preview);
 
   signals:
     void previewModeRequested(bool preview);

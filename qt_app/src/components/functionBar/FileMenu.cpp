@@ -18,19 +18,19 @@ FileMenu::FileMenu(QWidget *parent) : SelectionMenu(parent)
         action->setCheckable(true);
         views->addAction(action);
     }
-    placeholderAction_->setChecked(true);
+    previewAction_->setChecked(true);
     // TODO: 接入编辑视图；当前仅提供占位图和只读预览。
     editView->setEnabled(false);
     editView->setToolTip(QStringLiteral("编辑视图尚未接入"));
     connect(placeholderAction_, &QAction::triggered, this,
             [this]
             {
-                emit previewModeRequested(false);
+                setPreviewMode(false);
             });
     connect(previewAction_, &QAction::triggered, this,
             [this]
             {
-                emit previewModeRequested(true);
+                setPreviewMode(true);
             });
 
     auto *directoryMenu = new SelectionMenu(this);
@@ -74,6 +74,13 @@ FileMenu::FileMenu(QWidget *parent) : SelectionMenu(parent)
     replacementAction_ = conversionMenu->addAction(QStringLiteral("更换文件"));
     connect(replacementAction_, &QAction::triggered, this, &FileMenu::replacementRequested);
     setDocumentState(false, false);
+}
+
+// 菜单点击与程序切换共用入口，只改变查看方式，不改变转化业务模式。
+void FileMenu::setPreviewMode(bool preview)
+{
+    (preview ? previewAction_ : placeholderAction_)->setChecked(true);
+    emit previewModeRequested(preview);
 }
 
 void FileMenu::setDocumentState(bool hasDocument, bool busy)
