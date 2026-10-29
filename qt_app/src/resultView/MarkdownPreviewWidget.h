@@ -2,6 +2,7 @@
 #pragma once
 #include <QWidget>
 #include <memory>
+#include <functional>
 
 class MarkdownPreviewWidget : public QWidget
 {
@@ -12,6 +13,8 @@ class MarkdownPreviewWidget : public QWidget
     void setDocument(const QString &path);
     bool isPreviewReady() const;
     void setScrollPosition(int page, double fraction, double progress);
+    // 单工作区关闭时等待全部浏览器退出；不停止进程级 CEF 引擎。
+    static void closeWorkspaceBrowsers(std::function<void()> completed);
 
   signals:
     void previewReadyChanged(bool ready);

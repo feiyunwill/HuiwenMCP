@@ -18,6 +18,7 @@ class ConversionWindow : public QWidget
     explicit ConversionWindow(QWidget *parent = nullptr);
 
   protected:
+    void closeEvent(QCloseEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 

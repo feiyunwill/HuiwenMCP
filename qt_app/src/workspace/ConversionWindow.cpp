@@ -8,6 +8,10 @@
 #include "services/ConversionService.h"
 #include "sourceView/SourceDocumentView.h"
 #include <QCheckBox>
+#include <QCloseEvent>
+#ifdef Q_OS_OPENHARMONY
+#include "platform/harmony/qt_bridge.h"
+#endif
 #include <QFile>
 #include <QFileInfo>
 #include <QLabel>
@@ -154,6 +158,17 @@ ConversionWindow::ConversionWindow(QWidget *parent)
                 status_->setText(QStringLiteral("[code=%1] %2").arg(code).arg(message));
                 refreshBusyState();
             });
+}
+
+// 待迁移到窗口基类：QPA 已将系统关闭转为 closeEvent，这里只通过 NAPI 发出返回首页请求。
+void ConversionWindow::closeEvent(QCloseEvent *event)
+{
+#ifdef Q_OS_OPENHARMONY
+    event->ignore();
+    QtBridge::instance().request("close");
+#else
+    QWidget::closeEvent(event);
+#endif
 }
 
 void ConversionWindow::resizeEvent(QResizeEvent *event)

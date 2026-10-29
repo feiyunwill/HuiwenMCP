@@ -6,6 +6,9 @@
 #include <QWindow>
 #ifdef Q_OS_OPENHARMONY
 #include "platform/harmony/qt_bridge.h"
+#include "resultView/MarkdownPreviewWidget.h"
+#include <QPointer>
+#include <memory>
 #endif
 
 int main(int argc, char *argv[])
@@ -15,23 +18,61 @@ int main(int argc, char *argv[])
     QApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
 #endif
     QApplication app(argc, argv);
+#ifdef Q_OS_OPENHARMONY
+    app.setQuitOnLastWindowClosed(false);
+#endif
     app.setApplicationName("HuiwenMCP");
     app.setApplicationDisplayName(QStringLiteral("汇文MCP"));
     app.setWindowIcon(QIcon(QStringLiteral(":/branding/app_icon.png")));
-    ConversionWindow window;
-    window.showMaximized();
 #ifdef Q_OS_OPENHARMONY
+    // 待迁移：窗口基类可接管展示/关闭钩子；Ability 身份与 NAPI 交接仍留在平台侧。
+    std::unique_ptr<ConversionWindow> window;
+    quint64 workspaceId = 0;
+    auto &bridge = QtBridge::instance();
     QTimer readyTimer;
     readyTimer.setInterval(100);
-    QObject::connect(&readyTimer, &QTimer::timeout, &window,
+    const auto synchronizeWindow = [&]
+    {
+        const auto id = QtBridge::workspaceId();
+        if (id == workspaceId)
+            return;
+        readyTimer.stop();
+        window.reset();
+        workspaceId = id;
+        if (id)
+        {
+            window = std::make_unique<ConversionWindow>();
+            window->showMaximized();
+            readyTimer.start();
+        }
+    };
+    QObject::connect(&bridge, &QtBridge::workspaceChanged, &app, synchronizeWindow);
+    QObject::connect(&readyTimer, &QTimer::timeout, &app,
                      [&]
                      {
-                         if (window.windowHandle() && window.windowHandle()->isExposed() &&
-                             QtBridge::instance().request("ready"))
+                         if (window && workspaceId == QtBridge::workspaceId() && window->windowHandle() &&
+                             window->windowHandle()->isExposed() && bridge.request("ready"))
                              readyTimer.stop();
                      });
-    readyTimer.start();
-    QObject::connect(&app, &QCoreApplication::aboutToQuit, [] { QtBridge::instance().request("close"); });
+    QObject::connect(&bridge, &QtBridge::closeRequested, &app,
+                     [&]
+                     {
+                         if (!window)
+                             return;
+                         window->hide(); // 隐藏会停止预览定时器，关闭期间不再创建浏览器。
+                         QPointer<ConversionWindow> closingWindow(window.get());
+                         const auto id = workspaceId;
+                         MarkdownPreviewWidget::closeWorkspaceBrowsers(
+                             [closingWindow, id]
+                             {
+                                 if (closingWindow && id == QtBridge::workspaceId())
+                                     QtBridge::instance().request("closed");
+                             });
+                     });
+    synchronizeWindow();
+#else
+    ConversionWindow window;
+    window.showMaximized();
 #endif
     return app.exec();
 }

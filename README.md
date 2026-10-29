@@ -117,6 +117,10 @@ HuiWenMCP/
 
 鸿蒙跳转由 `HomePage.ets → startAbility(QtWorkspaceAbility) → QPA.startQtApplication() → libhuiwen_qt.so/main()` 完成。Qt 窗口实际显示后通过 NAPI 线程安全回调通知新 Ability；新 Ability 通过应用 EventHub 通知首页，只有发起跳转的首页消费一次通知并调用 `terminateSelf()`。这只结束首页 Ability，不结束应用进程。
 
+返回链为 `ConversionWindow::closeEvent() → QtBridge.request("close") → QtWorkspaceAbility.returnHome()`：先启动首页，收到 `EntryAbility` 页面加载且进入前台的 `huiwen.home.ready` 后，经 `workspaceReply({action:"close"})` 通知 Qt 隐藏窗体并关闭浏览器实例；全部实例关闭后 Qt 回传 `closed`，工作区 Ability 才结束。QPA 已把系统标题栏关闭转为 Qt `closeEvent`，不重复注册关闭监听。CEF 平台的关闭请求也复用 `returnHome()`。
+
+QPA 在进程内只启动一次 Qt 主循环，CEF 引擎也保留到应用退出。每次工作区注册/解除现有 NAPI 回调时，Qt 创建/释放对应的 `ConversionWindow`，下次进入仍使用 `showMaximized()`；关闭工作区不调用 `CefShutdown()`。窗口管理暂放 `main.cpp` 与 `closeEvent()`，后续再迁入窗口基类。本次仅做格式检查，连续往返和 CEF 展示仍需真机验收。
+
 当前 QPA 固定加载 `pages/Index`，不能让该路由同时作为 ArkTS 首页。`EntryAbility` 加载独立的 `pages/HomePage`；`Index.ets` 仅创建 Qt 的 NODE 类型 XComponent。`QtWorkspaceAbility.newLocalStorage()` 提供存储，QPA 写入 `idName` 并传给承载页。若在承载页放首页事件监听，会在 Qt 就绪时把 Qt Ability 也关闭；缺少存储方法则会产生 `newLocalStorage not found`、`Need object` 等日志。
 
 文件选择链为 `SourceDocumentView → SandboxService → QtBridge → QtWorkspaceAbility → DocumentStore`。Qt 请求进入 ArkTS 线程处理；结果经 NAPI 投递到 Qt 线程，不跨线程直接操作界面。新 Ability 使用自己的 Context，首页关闭后文件选择仍可继续。DocumentStore 只保留 Picker、URI 授权打开及关闭；目录、时间戳、命名、最近使用和缓存规则由通用 C++ `SandboxStore` 负责；鸿蒙授权 fd 复制与适配由 `HarmonySandbox` 负责。
@@ -344,6 +348,7 @@ hvigorw assembleHap --mode module -p product=default -p module=entry@default
 5. 转换成功后底部显示完整 MD 路径；点击 MD 卡片，沿用系统文件管理器打开文件夹，文件夹内能看到真实 MD。不存在、为空或不可读取的结果应在跳转前明确报错，不能误报转换成功。
 6. 日志搜索 `HUIWEN_OUTPUT`：`import_success` 为导入落盘路径，`convert_start` 为输入/输出路径，`verified` 为磁盘验证及字节数，`convert_success` 为成功通知，`locate_start` 为点击时重新检查，`locate_requested` 为鸿蒙桥接已提交。系统跳转结果继续查看原有 `HUIWEN_QT_OPEN_REQUEST`、`HUIWEN_QT_OPEN_REQUEST_ACCEPTED` 或 `HUIWEN_QT_OPEN_FAILED`。
 7. 新导入生成 `convert/yyyyMMdd_HHmmss_文件名/input/原文件.pdf` 与 `output/原文件.md`；同秒同名只对任务目录追加编号，文件名保持一致。首页默认展示最近三条记录，长文件名中部省略且不挤压固定列；点击应复用原任务、载入已有结果，不弹选择器、不新建目录。检查成功恢复、PDF 打开、转换开始及结束后任务目录修改时间会更新；查询和失败不更新时间。分别验证全新 Qt 窗口、已有窗口、转换中拒绝替换、PDF 被删除、尚无 MD 的任务。同一任务重试路径不变，历史 `outputs/md/` 继续支持原有目录跳转。
+8. 从最近工作区进入，切到预览模式确认 PDF 与已有 MD 显示；点击系统标题栏关闭应回到首页并结束工作区 Ability。连续重复进入和关闭，包含 MD 仍在加载时关闭，确认无残留白窗、整体退出或 CEF 失效；每次进入仍最大化，首页在工作区载入成功后结束。
 
 Python 固定入口在 stdout 最后一行返回 `HUIWEN_CONVERT_RESULT {"code":0,"message":"转化成功，Markdown 文件已生成。","outputPath":"/沙箱/convert/时间戳_文件名/output/文件.md"}`。失败时 `code` 非零、`outputPath` 为空、进程退出码为 1；详细异常写入日志，界面展示中文原因和处理建议。C++ 独立保存完整结果行，日志尾部缓存仍限制为 4096 字节，结果不受日志截断影响。成功仍保留 `HUIWEN_CONVERT_OK` 标记，原 ArkTS 接口继续成功返回路径、失败拒绝 Promise。
 

@@ -9,6 +9,19 @@ import { BusinessError } from '@kit.BasicServicesKit';
 export default class EntryAbility extends UIAbility {
   tag = "HuiwenMCP";
   domain = 0xFF00;
+  private contentReady: boolean = false;
+  private foreground: boolean = false;
+
+  // 页面已加载且实际进入前台，才确认可以结束旧工作区。
+  private notifyHomeReady(): void {
+    if (this.contentReady && this.foreground) {
+      this.context.getApplicationContext().eventHub.emit('huiwen.home.ready', '');
+    }
+  }
+
+  onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    this.notifyHomeReady();
+  }
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
     super.onCreate(want, launchParam)
@@ -28,6 +41,7 @@ export default class EntryAbility extends UIAbility {
     windowStage.loadContent('pages/HomePage', (err) => {
       if (err.code) {
         hilog.error(this.domain, this.tag, 'Failed to load page: %{public}s', JSON.stringify(err));
+        this.context.getApplicationContext().eventHub.emit('huiwen.home.ready', err.message);
         return;
       }
       // 两层背景分别设置，容器设置失败也不会阻断内容背景透明。
@@ -50,20 +64,27 @@ export default class EntryAbility extends UIAbility {
           'HUIWEN_HOME_TRANSPARENT_FAILED: stage=container, code=%{public}d, message=%{public}s',
           failure.code, failure.message);
       }
+      this.contentReady = true;
+      this.notifyHomeReady();
     });
   }
 
   onWindowStageDestroy() {
+    this.contentReady = false;
+    this.foreground = false;
     // Main window is destroyed, release UI related resources
     hilog.info(this.domain, this.tag, '%{public}s', 'Ability onWindowStageDestroy');
   }
 
   onForeground() {
+    this.foreground = true;
+    this.notifyHomeReady();
     // Ability has brought to foreground
     hilog.info(this.domain, this.tag, '%{public}s', 'Ability onForeground');
   }
 
   onBackground() {
+    this.foreground = false;
     // Ability has back to background
     hilog.info(this.domain, this.tag, '%{public}s', 'Ability onBackground');
   }

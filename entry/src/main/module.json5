@@ -43,7 +43,7 @@
       {
         "name": "EntryAbility",
         "srcEntry": "./ets/entryability/EntryAbility.ets",
-        "launchType": "specified",
+        "launchType": "singleton",
         "description": "$string:EntryAbility_desc",
         "icon": "$media:app_icon",
         "label": "$string:EntryAbility_label",

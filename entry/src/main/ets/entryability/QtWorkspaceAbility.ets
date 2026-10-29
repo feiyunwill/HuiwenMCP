@@ -33,7 +33,21 @@ export default class QtWorkspaceAbility extends UIAbility {
   private pendingTask: string = '';
   private restoring: boolean = false;
   private destroyed: boolean = false;
+  private closing: boolean = false;
   private cefProxy: CefWorkspaceProxy | undefined = undefined;
+  // 首页确认显示后才让 Qt 释放浏览器；只消费本次关闭的一次回执。
+  private homeReady = (error: string = ''): void => {
+    this.context.getApplicationContext().eventHub.off('huiwen.home.ready', this.homeReady);
+    if (this.destroyed) {
+      return;
+    }
+    if (error !== '') {
+      this.closing = false;
+      hilog.error(0xFF00, 'QtWorkspace', 'HUIWEN_HOME_FAILED: %{public}s', error);
+      return;
+    }
+    nativeBridge.workspaceReply(JSON.stringify({ action: 'close' }));
+  };
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     super.onCreate(want, launchParam);
@@ -46,7 +60,7 @@ export default class QtWorkspaceAbility extends UIAbility {
   }
 
   private async deliverPendingTask(): Promise<void> {
-    if (this.restoring || this.destroyed) {
+    if (this.restoring || this.destroyed || this.closing) {
       return;
     }
     const taskPath: string = this.pendingTask;
@@ -59,7 +73,7 @@ export default class QtWorkspaceAbility extends UIAbility {
       // 只传任务标识，实际文件路径由 C++ 重新校验；读取阶段不更新时间。
       const document: HarmonySandboxDocument = await nativeBridge.harmonyLoadTask(
         this.context.getApplicationContext().filesDir, taskPath);
-      if (this.destroyed || this.pendingTask !== taskPath) {
+      if (this.destroyed || this.closing || this.pendingTask !== taskPath) {
         return;
       }
       const reply: WorkspaceReply = {
@@ -86,13 +100,16 @@ export default class QtWorkspaceAbility extends UIAbility {
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
     try {
-      this.cefProxy = new CefWorkspaceProxy(this.context, windowStage);
+      this.cefProxy = new CefWorkspaceProxy(this.context, windowStage, (): void => {
+        this.returnHome();
+      });
+      // 先挂接 QPA 宿主，再通知 Qt 创建对应的新窗体。
+      qpa.startQtApplication(this);
       nativeBridge.registerWorkspace((json: string) => {
         this.handleWorkspaceEvent(json).catch((error: Error) => {
           hilog.error(0xFF00, 'QtWorkspace', 'HUIWEN_QT_EVENT_FAILED: %{public}s', error.message);
         });
       });
-      qpa.startQtApplication(this);
       hilog.info(0xFF00, 'QtWorkspace', 'HUIWEN_QT_START');
     } catch (error) {
       const message = (error as Error).message;
@@ -105,6 +122,20 @@ export default class QtWorkspaceAbility extends UIAbility {
 
   private async handleWorkspaceEvent(json: string): Promise<void> {
     const event = JSON.parse(json) as WorkspaceEvent;
+    if (this.destroyed) {
+      return;
+    }
+    if (event.action === 'close') {
+      await this.returnHome();
+      return;
+    }
+    if (event.action === 'closed' && this.closing) {
+      await this.context.terminateSelf();
+      return;
+    }
+    if (this.closing) {
+      return;
+    }
     if (event.action === 'ready') {
       this.workspaceReady = true;
       hilog.info(0xFF00, 'QtWorkspace', 'HUIWEN_QT_READY');
@@ -126,10 +157,6 @@ export default class QtWorkspaceAbility extends UIAbility {
         // Qt 已载入任务并更新时间，首页此时才结束自己的 Ability。
         this.context.getApplicationContext().eventHub.emit('huiwen.workspace.ready');
       }
-      return;
-    }
-    if (event.action === 'close') {
-      await this.context.terminateSelf();
       return;
     }
     const reply: WorkspaceReply = {
@@ -169,7 +196,22 @@ export default class QtWorkspaceAbility extends UIAbility {
       if (event.action === 'pick') {
         this.pickerBusy = false;
       }
-      nativeBridge.workspaceReply(JSON.stringify(reply));
+      if (!this.destroyed && !this.closing) {
+        nativeBridge.workspaceReply(JSON.stringify(reply));
+      }
+    }
+  }
+
+  private async returnHome(): Promise<void> {
+    if (this.closing || this.destroyed) {
+      return;
+    }
+    this.closing = true;
+    this.context.getApplicationContext().eventHub.on('huiwen.home.ready', this.homeReady);
+    try {
+      await this.context.startAbility({ bundleName: 'cn.com.HuiWenMCP', abilityName: 'EntryAbility' });
+    } catch (error) {
+      this.homeReady((error as Error).message);
     }
   }
 
@@ -201,14 +243,20 @@ export default class QtWorkspaceAbility extends UIAbility {
 
   onDestroy(): void {
     this.destroyed = true;
+    this.context.getApplicationContext().eventHub.off('huiwen.home.ready', this.homeReady);
     this.pendingTask = '';
-    nativeBridge.clearWorkspace();
+    // QPA 在本方法返回后标记宿主已销毁；下一轮事件再通知 Qt 释放窗体，避免抢先删除宿主。
+    setTimeout(() => nativeBridge.clearWorkspace(), 0);
     this.cefProxy?.dispose();
     this.cefProxy = undefined;
   }
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     // 复用已有窗口时也重新传递任务；仅在 Qt 确认恢复后通知首页关闭。
+    if (this.closing) {
+      this.context.getApplicationContext().eventHub.emit('huiwen.workspace.failed', '工作区正在关闭，请稍后再打开');
+      return;
+    }
     qpa.handleOnNewWant(want, launchParam);
     if (this.restoring || this.pickerBusy) {
       this.context.getApplicationContext().eventHub.emit('huiwen.workspace.failed', '工作区正在处理文件，请稍后重试');

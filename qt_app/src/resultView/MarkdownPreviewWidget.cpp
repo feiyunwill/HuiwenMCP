@@ -65,6 +65,7 @@ class CefRuntime
     // 仅在 CEF UI 线程访问。
     std::vector<CefRefPtr<CefBrowser>> browsers;
     int creating = 0;
+    std::function<void()> closeCompleted;
     static CefRuntime &instance()
     {
         static CefRuntime runtime;
@@ -95,8 +96,25 @@ class CefRuntime
         browsers.erase(std::remove_if(browsers.begin(), browsers.end(),
                                       [browser](const auto &item) { return item->IsSame(browser); }),
                        browsers.end());
-        if (stopping && browsers.empty() && creating == 0)
+        finishClose();
+    }
+    void finishClose()
+    {
+        if (!browsers.empty() || creating != 0)
+            return;
+        if (stopping)
             CefQuitMessageLoop();
+        else if (closeCompleted)
+        {
+            auto completed = std::move(closeCompleted);
+            closeCompleted = {};
+            // OnBeforeClose 返回后再通知 Qt，宿主窗口此时才允许销毁。
+            postCef(
+                [completed]
+                {
+                    QMetaObject::invokeMethod(qApp, completed, Qt::QueuedConnection);
+                });
+        }
     }
     ~CefRuntime() { stop(); }
 
@@ -196,9 +214,7 @@ class PreviewClient final : public CefClient,
         {
             --CefRuntime::instance().creating;
             notice_(false, QStringLiteral("无法创建 Markdown 预览窗口，请返回文件后重试"));
-            if (CefRuntime::instance().stopping && CefRuntime::instance().browsers.empty() &&
-                CefRuntime::instance().creating == 0)
-                CefQuitMessageLoop();
+            CefRuntime::instance().finishClose();
         }
     }
     void geometry(const QRect &bounds, bool visible, bool active)
@@ -270,7 +286,7 @@ class PreviewClient final : public CefClient,
         if (node)
             EWAdapterC::hideNode(node);
         browser->GetHost()->SetAccessibilityState(STATE_DISABLED);
-        if (closing_ || CefRuntime::instance().stopping)
+        if (closing_ || CefRuntime::instance().stopping || CefRuntime::instance().closeCompleted)
             close();
     }
     bool DoClose(CefRefPtr<CefBrowser>) override { return false; }
@@ -503,6 +519,28 @@ void MarkdownPreviewWidget::openBrowser()
 #endif
 }
 
+void MarkdownPreviewWidget::closeWorkspaceBrowsers(std::function<void()> completed)
+{
+#ifdef Q_OS_OPENHARMONY
+    if (CefRuntime::instance().state == CefRuntime::Ready)
+    {
+        postCef(
+            [completed = std::move(completed)]() mutable
+            {
+                auto &runtime = CefRuntime::instance();
+                runtime.closeCompleted = std::move(completed);
+                const auto browsers = runtime.browsers;
+                for (const auto &browser : browsers)
+                    browser->GetHost()->CloseBrowser(true);
+                runtime.finishClose();
+            });
+        return;
+    }
+#endif
+    // 窗体已隐藏；引擎尚未就绪时不存在浏览器，也不会再由预览定时器创建。
+    completed();
+}
+
 void MarkdownPreviewWidget::closeBrowser()
 {
     if (d_->ready)
@@ -590,11 +628,6 @@ bool MarkdownPreviewWidget::eventFilter(QObject *watched, QEvent *event)
             d_->active = true;
         else if (event->type() == QEvent::WindowDeactivate)
             d_->active = false;
-#ifdef Q_OS_OPENHARMONY
-        // 先关闭浏览器子节点，再允许 QPA 销毁宿主窗口。
-        if (event->type() == QEvent::Close)
-            CefRuntime::instance().stop();
-#endif
         if (event->type() == QEvent::Resize || event->type() == QEvent::Move ||
             event->type() == QEvent::WindowStateChange || event->type() == QEvent::WindowActivate ||
             event->type() == QEvent::WindowDeactivate)

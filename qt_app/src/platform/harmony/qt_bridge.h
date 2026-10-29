@@ -9,8 +9,11 @@ class QtBridge : public QObject
     Q_OBJECT
   public:
     static QtBridge &instance();
+    static quint64 workspaceId();
     bool request(const QString &action, const QString &path = {});
   signals:
+    void workspaceChanged();
+    void closeRequested();
     void replyReceived(const QString &json);
 };
 

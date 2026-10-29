@@ -33,8 +33,10 @@ export class CefWorkspaceProxy implements WebProxy {
   private context: common.UIAbilityContext;
   private stage: window.WindowStage;
   private id: string;
+  private onCloseRequested: () => void;
 
-  constructor(context: common.UIAbilityContext, stage: window.WindowStage) {
+  constructor(context: common.UIAbilityContext, stage: window.WindowStage, onCloseRequested: () => void) {
+    this.onCloseRequested = onCloseRequested;
     this.context = context;
     this.stage = stage;
     // 单例工作区使用适配层约定的 Qt 宿主 ID，供平台服务反查窗口。
@@ -67,7 +69,7 @@ export class CefWorkspaceProxy implements WebProxy {
   updateAvoidAreaStatus(isFullScreen: boolean): void {}
 
   closeWindow(): void {
-    this.context.terminateSelf().catch((error: Error) => console.error(error.message));
+    this.onCloseRequested(); // CEF 与标题栏使用同一返回首页入口。
   }
 
   setWindowTitle(title: string): void {

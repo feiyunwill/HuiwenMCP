@@ -10,6 +10,20 @@ namespace
 {
 std::mutex callbackMutex;
 napi_threadsafe_function callback = nullptr;
+quint64 generation = 0;
+
+// 冷启动时 Qt 尚未运行，由 main 主动读取；重入时排队通知 Qt 线程重建窗体。
+void NotifyWorkspaceChanged()
+{
+    if (auto *app = QCoreApplication::instance())
+        QMetaObject::invokeMethod(
+            app,
+            []
+            {
+                emit QtBridge::instance().workspaceChanged();
+            },
+            Qt::QueuedConnection);
+}
 
 void CallArkTs(napi_env env, napi_value fn, void *, void *data)
 {
@@ -24,10 +38,13 @@ void CallArkTs(napi_env env, napi_value fn, void *, void *data)
 
 napi_value Clear(napi_env env, napi_callback_info)
 {
-    std::lock_guard<std::mutex> lock(callbackMutex);
-    if (callback)
-        napi_release_threadsafe_function(callback, napi_tsfn_abort);
-    callback = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        if (callback)
+            napi_release_threadsafe_function(callback, napi_tsfn_abort);
+        callback = nullptr;
+    }
+    NotifyWorkspaceChanged();
     napi_value result;
     napi_get_undefined(env, &result);
     return result;
@@ -54,6 +71,8 @@ napi_value Register(napi_env env, napi_callback_info info)
         return nullptr;
     }
     napi_unref_threadsafe_function(env, callback);
+    ++generation;
+    NotifyWorkspaceChanged();
     napi_value result;
     napi_get_undefined(env, &result);
     return result;
@@ -74,9 +93,21 @@ napi_value Reply(napi_env env, napi_callback_info info)
     QByteArray json(static_cast<int>(size + 1), '\0');
     napi_get_value_string_utf8(env, value, json.data(), json.size(), &size);
     json.resize(static_cast<int>(size));
+    const auto id = QtBridge::workspaceId();
     if (auto *app = QCoreApplication::instance())
         QMetaObject::invokeMethod(
-            app, [json] { emit QtBridge::instance().replyReceived(QString::fromUtf8(json)); },
+            app,
+            [json, id]
+            {
+                if (!id || id != QtBridge::workspaceId())
+                    return;
+                auto &bridge = QtBridge::instance();
+                // ArkTS 首页就绪后发 close；文件业务仍走原有回包通道。
+                if (QJsonDocument::fromJson(json).object().value("action").toString() == "close")
+                    emit bridge.closeRequested();
+                else
+                    emit bridge.replyReceived(QString::fromUtf8(json));
+            },
             Qt::QueuedConnection);
     napi_value result;
     napi_get_undefined(env, &result);
@@ -88,6 +119,12 @@ QtBridge &QtBridge::instance()
 {
     static QtBridge bridge;
     return bridge;
+}
+
+quint64 QtBridge::workspaceId()
+{
+    std::lock_guard<std::mutex> lock(callbackMutex);
+    return callback ? generation : 0;
 }
 
 bool QtBridge::request(const QString &action, const QString &path)
